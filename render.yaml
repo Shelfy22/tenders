@@ -10,4 +10,6 @@ services:
       - key: NODE_ENV
         value: production
       - key: N8N_WEBHOOK_URL
-        sync: false
+        value: https://halonkjurusun.beget.app/webhook-test/tender-autofill
+      - key: CALLBACK_URL
+        value: https://tenders-6pb1.onrender.com/api/tender-autofill/result

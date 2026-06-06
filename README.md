@@ -50,6 +50,7 @@ npm run dev
 
 - `POST /api/tender-autofill/start`
 - `GET /api/tender-autofill/status/:jobId`
+- `POST /api/tender-autofill/result`
 - `PATCH /api/tender-card/:id`
 - `POST /api/n8n-webhook-mock/tender-autofill`
 
@@ -61,10 +62,22 @@ npm run dev
 API и production-сборку React с одного домена.
 
 1. В Render выберите **New → Blueprint** и подключите GitHub-репозиторий.
-2. Укажите значение `N8N_WEBHOOK_URL`:
-   `https://ваш-n8n-домен/webhook/tender-autofill`.
+2. Проверьте значения `N8N_WEBHOOK_URL` и `CALLBACK_URL` в настройках сервиса.
 3. Создайте сервис и дождитесь завершения сборки.
 
-Workflow n8n должен быть активирован, а URL должен быть production webhook,
-не `/webhook-test/`. Переменная `VITE_API_URL` на Render не нужна: frontend
-обращается к API на том же домене.
+Сейчас в `render.yaml` указан `/webhook-test/`: он работает только пока в n8n
+включено ожидание тестового события. Для постоянной работы активируйте workflow
+и замените URL на `/webhook/tender-autofill`. Переменная `VITE_API_URL` на
+Render не нужна: frontend обращается к API на том же домене.
+
+Backend отправляет в n8n:
+
+```json
+{
+  "tenderCardId": 123,
+  "tenderUrl": "https://zakupki.kontur.ru/...",
+  "callbackUrl": "https://tenders-6pb1.onrender.com/api/tender-autofill/result"
+}
+```
+
+n8n отправляет найденные `fields`, `meta` и `warnings` обратно на callback.

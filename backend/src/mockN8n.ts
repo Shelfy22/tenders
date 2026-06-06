@@ -1,5 +1,30 @@
 import type { AutofillResult } from "./types.js";
 
+export function createEmptyAutofillFields(): AutofillResult["fields"] {
+  return {
+    counterparty: "",
+    inn: "",
+    kpp: "",
+    legalEntity: "",
+    federalLaw: "",
+    resultDate: "",
+    contractDate: "",
+    deliveryType: "",
+    deliveryDate: "",
+    deliveryBatchDays: "",
+    deliveryDays: "",
+    paymentDelayDays: "",
+    nationalRegime: "",
+    lotDivisible: "",
+    contractSecurity: "",
+    applicationSecurity: "",
+    warrantySecurity: "",
+    warrantyMonths: "",
+    specialAccount: "",
+    deliveryNote: ""
+  };
+}
+
 export function createMockN8nResult(): AutofillResult {
   const fields = {
     counterparty: "ООО «Ромашка»",
@@ -54,12 +79,13 @@ export function createMockN8nResult(): AutofillResult {
 export async function callN8nWebhook(
   webhookUrl: string,
   tenderCardId: number,
-  tenderUrl: string
+  tenderUrl: string,
+  callbackUrl: string
 ): Promise<AutofillResult> {
   const response = await fetch(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tenderCardId, tenderUrl })
+    body: JSON.stringify({ tenderCardId, tenderUrl, callbackUrl })
   });
   if (!response.ok) {
     throw new Error(`n8n webhook returned ${response.status}`);

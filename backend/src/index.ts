@@ -3,9 +3,14 @@ import "dotenv/config";
 import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { getJob, startJob } from "./jobs.js";
+import { completeJobFromCallback, getJob, startJob } from "./jobs.js";
 import { createMockN8nResult } from "./mockN8n.js";
-import type { AutofillStatusResponse, TenderCard } from "./types.js";
+import type {
+  AutofillFields,
+  AutofillMeta,
+  AutofillStatusResponse,
+  TenderCard
+} from "./types.js";
 
 const app = express();
 const port = Number(process.env.PORT) || 4000;
@@ -50,6 +55,35 @@ app.get("/api/tender-autofill/status/:jobId", (req, res) => {
     return;
   }
   res.json({ status: "processing", progress: job.progress });
+});
+
+app.post("/api/tender-autofill/result", (req, res) => {
+  const { tenderCardId, tenderUrl, status, fields, meta, warnings } = req.body as {
+    tenderCardId?: number;
+    tenderUrl?: string;
+    status?: string;
+    fields?: Partial<AutofillFields>;
+    meta?: AutofillMeta;
+    warnings?: string[];
+  };
+  if (typeof tenderCardId !== "number" || status !== "done" || !fields) {
+    res.status(400).json({
+      success: false,
+      error: "Ожидаются tenderCardId, status=done и fields"
+    });
+    return;
+  }
+
+  const job = completeJobFromCallback(tenderCardId, tenderUrl, {
+    fields,
+    meta,
+    warnings
+  });
+  if (!job) {
+    res.status(404).json({ success: false, error: "Active job not found" });
+    return;
+  }
+  res.json({ success: true, jobId: job.id, status: job.status });
 });
 
 app.patch("/api/tender-card/:id", (req, res) => {
