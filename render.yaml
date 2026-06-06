@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: tender-autofill
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: N8N_WEBHOOK_URL
+        sync: false
