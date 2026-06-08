@@ -29,11 +29,13 @@ export function startJob(tenderCardId: number, tenderUrl: string): AutofillJob {
     progress: stages[0]
   };
   jobs.set(job.id, job);
+  scheduleJobTimeout(job);
   void processJob(job);
   return job;
 }
 
 export function completeJobFromCallback(
+  requestId: string | undefined,
   tenderCardId: number,
   tenderUrl: string | undefined,
   result: {
@@ -42,14 +44,18 @@ export function completeJobFromCallback(
     warnings?: string[];
   }
 ): AutofillJob | undefined {
-  const job = [...jobs.values()]
-    .reverse()
-    .find(
-      (candidate) =>
-        candidate.status === "processing" &&
-        candidate.tenderCardId === tenderCardId &&
-        (!tenderUrl || candidate.tenderUrl === tenderUrl)
-    );
+  const jobByRequestId = requestId ? jobs.get(requestId) : undefined;
+  const job =
+    jobByRequestId?.status === "processing"
+      ? jobByRequestId
+      : [...jobs.values()]
+          .reverse()
+          .find(
+            (candidate) =>
+              candidate.status === "processing" &&
+              candidate.tenderCardId === tenderCardId &&
+              (!tenderUrl || candidate.tenderUrl === tenderUrl)
+          );
   if (!job) return undefined;
 
   job.result = {
@@ -88,6 +94,7 @@ async function processJob(job: AutofillJob): Promise<void> {
 
     const result = await callN8nWebhook(
       webhookUrl,
+      job.id,
       job.tenderCardId,
       job.tenderUrl,
       callbackUrl
@@ -95,7 +102,7 @@ async function processJob(job: AutofillJob): Promise<void> {
 
     // Callback normally completes the job first; JSON webhook output is a fallback.
     if (job.status === "processing" && result?.fields) {
-      completeJobFromCallback(job.tenderCardId, job.tenderUrl, result);
+      completeJobFromCallback(job.id, job.tenderCardId, job.tenderUrl, result);
     }
   } catch (error) {
     if (job.status === "processing") {
@@ -109,6 +116,21 @@ async function processJob(job: AutofillJob): Promise<void> {
 function buildCallbackUrl(publicBaseUrl: string | undefined): string {
   const baseUrl = publicBaseUrl?.trim().replace(/\/+$/, "");
   return baseUrl ? `${baseUrl}/api/tender-autofill/result` : "";
+}
+
+function scheduleJobTimeout(job: AutofillJob): void {
+  const configuredTimeout = Number(process.env.N8N_JOB_TIMEOUT_MS);
+  const timeoutMs =
+    Number.isFinite(configuredTimeout) && configuredTimeout > 0
+      ? configuredTimeout
+      : 20 * 60 * 1000;
+  const timer = setTimeout(() => {
+    if (job.status !== "processing") return;
+    job.status = "error";
+    job.error = "Превышено время ожидания результата n8n";
+    console.error("[autofill/start] job timed out:", job.id);
+  }, timeoutMs);
+  timer.unref();
 }
 
 async function advanceProgress(job: AutofillJob): Promise<void> {

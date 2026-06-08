@@ -18,7 +18,7 @@ const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const frontendDirectory = path.resolve(currentDirectory, "../../frontend/dist");
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "5mb" }));
 
 app.post("/api/tender-autofill/start", (req, res) => {
   const { tenderCardId, tenderUrl } = req.body as {
@@ -68,15 +68,24 @@ app.get("/api/tender-autofill/status/:jobId", (req, res) => {
 });
 
 app.post("/api/tender-autofill/result", (req, res) => {
-  const { tenderCardId, tenderUrl, status, fields, meta, warnings } = req.body as {
-    tenderCardId?: number;
+  const { requestId, tenderCardId, tenderUrl, status, fields, meta, warnings } = req.body as {
+    requestId?: string;
+    tenderCardId?: number | string;
     tenderUrl?: string;
     status?: string;
     fields?: Partial<AutofillFields>;
     meta?: AutofillMeta;
     warnings?: string[];
   };
-  if (typeof tenderCardId !== "number" || status !== "done" || !fields) {
+  const normalizedTenderCardId =
+    typeof tenderCardId === "number" ? tenderCardId : Number(tenderCardId);
+  if (!Number.isInteger(normalizedTenderCardId) || status !== "done" || !fields) {
+    console.warn("[autofill/result] rejected callback:", {
+      requestId,
+      tenderCardId,
+      status,
+      hasFields: Boolean(fields)
+    });
     res.status(400).json({
       success: false,
       error: "Ожидаются tenderCardId, status=done и fields"
@@ -84,12 +93,17 @@ app.post("/api/tender-autofill/result", (req, res) => {
     return;
   }
 
-  const job = completeJobFromCallback(tenderCardId, tenderUrl, {
+  const job = completeJobFromCallback(requestId, normalizedTenderCardId, tenderUrl, {
     fields,
     meta,
     warnings
   });
   if (!job) {
+    console.warn("[autofill/result] active job not found:", {
+      requestId,
+      tenderCardId: normalizedTenderCardId,
+      tenderUrl
+    });
     res.status(404).json({ success: false, error: "Active job not found" });
     return;
   }

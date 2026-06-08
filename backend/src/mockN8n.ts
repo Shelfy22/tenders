@@ -122,11 +122,12 @@ export function createMockN8nResult(): AutofillResult {
 
 export async function callN8nWebhook(
   webhookUrl: string,
+  requestId: string,
   tenderCardId: number,
   tenderUrl: string,
   callbackUrl: string
 ): Promise<AutofillResult | undefined> {
-  const payload = { tenderCardId, tenderUrl, callbackUrl };
+  const payload = { requestId, tenderCardId, tenderUrl, callbackUrl };
   console.log("[autofill/start] calling n8n:", webhookUrl);
   console.log("[autofill/start] payload:", payload);
 

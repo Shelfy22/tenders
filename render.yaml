@@ -13,3 +13,5 @@ services:
         value: https://halonkjurusun.beget.app/webhook/tender-autofill
       - key: PUBLIC_BASE_URL
         value: https://tenders-6pb1.onrender.com
+      - key: N8N_JOB_TIMEOUT_MS
+        value: "1200000"
