@@ -2,63 +2,99 @@ import type { AutofillResult } from "./types.js";
 
 export function createEmptyAutofillFields(): AutofillResult["fields"] {
   return {
-    counterparty: "",
-    inn: "",
-    kpp: "",
-    legalEntity: "",
+    dateCreated: "",
+    submissionDeadlineDate: "",
+    submissionDeadlineTime: "",
+    tenderUrlSource: "",
     federalLaw: "",
+    stateDefenseOrder: "",
+    tenderStatus: "",
+    tenderStatusNote: "",
+    tenderGroup: "",
+    initialPrice: "",
+    finalPrice: "",
     resultDate: "",
     contractDate: "",
     deliveryType: "",
-    deliveryDate: "",
     deliveryBatchDays: "",
     deliveryDays: "",
+    deliveryDate: "",
     paymentDelayDays: "",
-    nationalRegime: "",
     lotDivisible: "",
-    contractSecurity: "",
+    deliveryNote: "",
+    counterpartyCode: "",
+    counterpartyName: "",
+    counterpartyInn: "",
+    counterpartyKpp: "",
+    counterpartyCkg: "",
+    counterpartyPotential: "",
+    deal: "",
+    contract: "",
+    counterpartyNote: "",
+    op: "",
+    legalEntity: "",
+    tenderSubmittedDate: "",
+    tenderWonDate: "",
     applicationSecurity: "",
+    contractSecurity: "",
     warrantySecurity: "",
     warrantyMonths: "",
+    nationalRegime: "",
     specialAccount: "",
-    deliveryNote: ""
+    productDirections: []
   };
 }
 
 export function createMockN8nResult(): AutofillResult {
-  const fields = {
-    counterparty: "ООО «Ромашка»",
-    inn: "7701234567",
-    kpp: "770101001",
-    legalEntity: "149",
+  const fields: AutofillResult["fields"] = {
+    ...createEmptyAutofillFields(),
+    dateCreated: "2026-06-08",
+    submissionDeadlineDate: "2026-12-01",
+    submissionDeadlineTime: "10:00",
+    tenderUrlSource: "https://zakupki.kontur.ru/example",
     federalLaw: "223",
+    stateDefenseOrder: "no",
+    tenderStatus: "participation_application",
+    initialPrice: "1 251 000,00 рублей",
     resultDate: "2026-12-10",
     contractDate: "2026-12-30",
     deliveryType: "by_requests",
-    deliveryDate: "",
     deliveryBatchDays: 5,
-    deliveryDays: "",
     paymentDelayDays: 30,
-    nationalRegime: "restriction",
     lotDivisible: "no",
-    contractSecurity: "5% от НМЦК",
+    counterpartyName: "ООО «Ромашка»",
+    counterpartyInn: "7701234567",
+    counterpartyKpp: "770101001",
+    legalEntity: "149",
     applicationSecurity: "1% от НМЦК",
-    warrantySecurity: "",
+    contractSecurity: "5% от НМЦК",
     warrantyMonths: 12,
+    nationalRegime: "restriction",
     specialAccount: "no",
-    deliveryNote: ""
-  } as const;
+    productDirections: ["Отдел ЭТСИиО"]
+  };
 
   return {
-    fields: { ...fields },
+    fields,
     meta: {
-      counterparty: { source: "Проект договора", confidence: "high" },
-      inn: { source: "Проект договора", confidence: "high" },
-      kpp: { source: "Проект договора", confidence: "high" },
-      legalEntity: { source: "Извещение, найдено ограничение СМСП", confidence: "high" },
+      submissionDeadlineDate: { source: "Страница ЭТП", confidence: "high" },
       federalLaw: { source: "Страница ЭТП", confidence: "high" },
-      resultDate: { source: "Страница ЭТП, раздел «Общая информация»", confidence: "medium" },
-      contractDate: { source: "Расчёт: дата итогов + 20 календарных дней", confidence: "high" },
+      initialPrice: { source: "Извещение", confidence: "high" },
+      counterpartyName: { source: "Проект договора", confidence: "high" },
+      counterpartyInn: { source: "Проект договора", confidence: "high" },
+      counterpartyKpp: { source: "Проект договора", confidence: "high" },
+      legalEntity: {
+        source: "Извещение, найдено ограничение СМСП",
+        confidence: "high"
+      },
+      resultDate: {
+        source: "Страница ЭТП, раздел «Общая информация»",
+        confidence: "medium"
+      },
+      contractDate: {
+        source: "Расчёт: дата итогов + 20 календарных дней",
+        confidence: "high"
+      },
       deliveryType: { source: "Техническое задание", confidence: "medium" },
       deliveryBatchDays: { source: "Техническое задание", confidence: "medium" },
       paymentDelayDays: { source: "Проект договора", confidence: "high" },
@@ -67,7 +103,15 @@ export function createMockN8nResult(): AutofillResult {
       contractSecurity: { source: "Извещение", confidence: "medium" },
       applicationSecurity: { source: "Извещение", confidence: "medium" },
       warrantyMonths: { source: "Техническое задание", confidence: "low" },
-      specialAccount: { source: "Признаки спецсчёта не найдены", confidence: "medium" }
+      specialAccount: {
+        source: "Признаки спецсчёта не найдены",
+        confidence: "medium"
+      },
+      productDirections: {
+        source: "Спецификация: кабель и автоматические выключатели",
+        confidence: "high",
+        evidence: "кабель силовой, выключатель автоматический"
+      }
     },
     warnings: [
       "Гарантийный срок найден с низкой уверенностью",

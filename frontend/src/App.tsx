@@ -1,9 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { getAutofillStatus, saveTenderCard, startAutofill } from "./api";
 import { fieldsConfig, initialCard } from "./fieldsConfig";
 import type { AutofillStatusResponse, TenderCard } from "./types";
 
 const confidenceLabels = { high: "Высокая", medium: "Средняя", low: "Низкая" };
+
+function hasValue(value: TenderCard[keyof TenderCard] | undefined): boolean {
+  return Array.isArray(value) ? value.length > 0 : value !== "" && value !== undefined;
+}
+
+function displayValue(value: TenderCard[keyof TenderCard] | undefined): string {
+  return Array.isArray(value) ? value.join(", ") : String(value ?? "");
+}
 
 export default function App() {
   const [card, setCard] = useState<TenderCard>(initialCard);
@@ -43,7 +51,7 @@ export default function App() {
   }, [jobId, result, error]);
 
   const previewFields = useMemo(
-    () => fieldsConfig.filter(({ key }) => result?.meta[key] || result?.fields[key] !== ""),
+    () => fieldsConfig.filter(({ key }) => result?.meta[key] || hasValue(result?.fields[key])),
     [result]
   );
 
@@ -54,6 +62,20 @@ export default function App() {
     setChangedFields((current) => {
       const next = new Set(current);
       next.delete(key);
+      return next;
+    });
+  };
+
+  const toggleDirection = (direction: string) => {
+    setCard((current) => ({
+      ...current,
+      productDirections: current.productDirections.includes(direction)
+        ? current.productDirections.filter((item) => item !== direction)
+        : [...current.productDirections, direction]
+    }));
+    setChangedFields((current) => {
+      const next = new Set(current);
+      next.delete("productDirections");
       return next;
     });
   };
@@ -85,17 +107,20 @@ export default function App() {
 
   const applyResult = () => {
     if (!result) return;
-    const changed = new Set<keyof TenderCard>();
+    const changedFieldsToApply = new Set<keyof TenderCard>();
     const next = { ...card };
     for (const key of Object.keys(result.fields) as (keyof TenderCard)[]) {
       const value = result.fields[key];
-      if (value !== "" && value !== card[key]) {
+      const valueChanged = Array.isArray(value)
+        ? JSON.stringify(value) !== JSON.stringify(card[key])
+        : value !== card[key];
+      if (hasValue(value) && valueChanged) {
         Object.assign(next, { [key]: value });
-        changed.add(key);
+        changedFieldsToApply.add(key);
       }
     }
     setCard(next);
-    setChangedFields(changed);
+    setChangedFields(changedFieldsToApply);
     closeModal();
   };
 
@@ -131,37 +156,62 @@ export default function App() {
           <span>Поля со звёздочкой важны для обработки</span>
         </div>
         <div className="form-grid">
-          {fieldsConfig.map((field) => (
-            <label className={`field ${field.type === "textarea" ? "field-wide" : ""}`} key={field.key}>
-              <span className="field-label">
-                {field.label}
-                {field.important && <span className="badge badge-important">важно</span>}
-              </span>
-              {field.type === "select" ? (
-                <select
-                  className={changedFields.has(field.key) ? "changed" : ""}
-                  value={String(card[field.key])}
-                  onChange={(event) => updateField(field.key, event.target.value)}
-                >
-                  {field.options?.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
-                </select>
-              ) : field.type === "textarea" ? (
-                <textarea
-                  className={changedFields.has(field.key) ? "changed" : ""}
-                  rows={3}
-                  value={String(card[field.key])}
-                  onChange={(event) => updateField(field.key, event.target.value)}
-                />
-              ) : (
-                <input
-                  className={changedFields.has(field.key) ? "changed" : ""}
-                  type={field.type || "text"}
-                  min={field.type === "number" ? 0 : undefined}
-                  value={String(card[field.key])}
-                  onChange={(event) => updateField(field.key, event.target.value)}
-                />
+          {fieldsConfig.map((field, index) => (
+            <Fragment key={field.key}>
+              {(index === 0 || fieldsConfig[index - 1].section !== field.section) && (
+                <div className="form-section-title">
+                  <h3>{field.section}</h3>
+                </div>
               )}
-            </label>
+              {field.type === "checkboxes" ? (
+                <div className={`field field-wide directions-field ${changedFields.has(field.key) ? "changed-panel" : ""}`}>
+                  <span className="field-label">{field.label}</span>
+                  <div className="directions-grid">
+                    {field.options?.map((option) => (
+                      <label className="direction-option" key={option.value}>
+                        <input
+                          type="checkbox"
+                          checked={card.productDirections.includes(option.value)}
+                          onChange={() => toggleDirection(option.value)}
+                        />
+                        <span>{option.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <label className={`field ${field.type === "textarea" ? "field-wide" : ""}`}>
+                  <span className="field-label">
+                    {field.label}
+                    {field.important && <span className="badge badge-important">важно</span>}
+                  </span>
+                  {field.type === "select" ? (
+                    <select
+                      className={changedFields.has(field.key) ? "changed" : ""}
+                      value={String(card[field.key])}
+                      onChange={(event) => updateField(field.key, event.target.value)}
+                    >
+                      {field.options?.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
+                    </select>
+                  ) : field.type === "textarea" ? (
+                    <textarea
+                      className={changedFields.has(field.key) ? "changed" : ""}
+                      rows={3}
+                      value={String(card[field.key])}
+                      onChange={(event) => updateField(field.key, event.target.value)}
+                    />
+                  ) : (
+                    <input
+                      className={changedFields.has(field.key) ? "changed" : ""}
+                      type={field.type || "text"}
+                      min={field.type === "number" ? 0 : undefined}
+                      value={String(card[field.key])}
+                      onChange={(event) => updateField(field.key, event.target.value)}
+                    />
+                  )}
+                </label>
+              )}
+            </Fragment>
           ))}
         </div>
         <div className="card-footer">
@@ -207,7 +257,7 @@ export default function App() {
                     const meta = result.meta[key];
                     return (
                       <article className="preview-item" key={key}>
-                        <div><span className="preview-label">{label}</span><strong>{String(result.fields[key]) || "Не найдено"}</strong></div>
+                        <div><span className="preview-label">{label}</span><strong>{displayValue(result.fields[key]) || "Не найдено"}</strong></div>
                         {meta && <div className="source"><span>{meta.source}</span><span className={`confidence confidence-${meta.confidence}`}>{confidenceLabels[meta.confidence]}</span></div>}
                       </article>
                     );

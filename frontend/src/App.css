@@ -23,6 +23,9 @@ h2 { margin-bottom: 0; font-size: 21px; }
 .card-heading span { color: #7d8597; font-size: 13px; }
 .card-footer { justify-content: flex-end; border-top: 1px solid #edf0f5; border-bottom: 0; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 28px; padding: 28px; }
+.form-section-title { grid-column: 1 / -1; margin: 10px 0 -4px; padding-bottom: 10px; border-bottom: 1px solid #e7eaf0; }
+.form-section-title:first-child { margin-top: 0; }
+.form-section-title h3 { margin: 0; font-size: 17px; color: #313a4d; }
 .field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .field-wide { grid-column: 1 / -1; }
 .field-label { display: flex; align-items: center; gap: 8px; color: #414a5d; font-size: 13px; font-weight: 700; }
@@ -30,6 +33,11 @@ input, select, textarea { width: 100%; border: 1px solid #d7dce6; border-radius:
 input:focus, select:focus, textarea:focus { border-color: #687be5; box-shadow: 0 0 0 3px rgba(104, 123, 229, .13); }
 textarea { resize: vertical; }
 .changed { border-color: #e0bf4c; background: #fff9d9; }
+.changed-panel { border-color: #e0bf4c !important; background: #fff9d9 !important; }
+.directions-field { border: 1px solid #e1e5ec; border-radius: 12px; background: #fafbfc; padding: 18px; }
+.directions-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 24px; }
+.direction-option { display: flex; align-items: flex-start; gap: 9px; color: #414a5d; font-size: 14px; cursor: pointer; }
+.direction-option input { width: 16px; height: 16px; flex: 0 0 auto; margin-top: 2px; accent-color: #5367d7; }
 
 .button { border: 0; border-radius: 10px; padding: 11px 18px; font-weight: 750; transition: transform .15s, opacity .15s, background .15s; }
 .button:hover:not(:disabled) { transform: translateY(-1px); }
@@ -79,6 +87,7 @@ textarea { resize: vertical; }
   .page-header { align-items: stretch; flex-direction: column; }
   .page-header .button { width: 100%; }
   .form-grid, .preview-list { grid-template-columns: 1fr; }
+  .directions-grid { grid-template-columns: 1fr; }
   .field-wide { grid-column: auto; }
   .form-grid, .card-heading, .card-footer { padding: 20px; }
   .card-heading { align-items: flex-start; flex-direction: column; }
