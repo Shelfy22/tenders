@@ -125,14 +125,32 @@ export async function callN8nWebhook(
   tenderCardId: number,
   tenderUrl: string,
   callbackUrl: string
-): Promise<AutofillResult> {
+): Promise<AutofillResult | undefined> {
+  const payload = { tenderCardId, tenderUrl, callbackUrl };
+  console.log("[autofill/start] calling n8n:", webhookUrl);
+  console.log("[autofill/start] payload:", payload);
+
   const response = await fetch(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tenderCardId, tenderUrl, callbackUrl })
+    body: JSON.stringify(payload)
   });
+  const responseText = await response.text();
+  console.log("[autofill/start] n8n status:", response.status);
+  console.log("[autofill/start] n8n response preview:", responseText.slice(0, 300));
+
   if (!response.ok) {
-    throw new Error(`n8n webhook returned ${response.status}`);
+    throw new Error(
+      `n8n webhook returned ${response.status}: ${responseText.slice(0, 500)}`
+    );
   }
-  return (await response.json()) as AutofillResult;
+  if (!(response.headers.get("content-type") ?? "").includes("application/json")) {
+    return undefined;
+  }
+  try {
+    return JSON.parse(responseText) as AutofillResult;
+  } catch {
+    console.warn("[autofill/start] n8n returned invalid JSON; waiting for callback");
+    return undefined;
+  }
 }

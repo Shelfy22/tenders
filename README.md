@@ -39,9 +39,9 @@ npm run dev
 
 ## Настройка окружения
 
-Скопируйте `.env.example` в `.env`. При пустом `N8N_WEBHOOK_URL` backend
+Скопируйте `.env.example` в `.env`. При пустом `N8N_AUTOFILL_WEBHOOK_URL` backend
 использует mock-результат. Если URL задан, backend отправляет туда
-`POST` с `tenderCardId` и `tenderUrl`.
+`POST` с `tenderCardId`, `tenderUrl` и `callbackUrl`.
 
 Для frontend переменная `VITE_API_URL` должна быть доступна Vite. Её можно
 поместить в `frontend/.env`, если адрес backend отличается от стандартного.
@@ -62,13 +62,12 @@ npm run dev
 API и production-сборку React с одного домена.
 
 1. В Render выберите **New → Blueprint** и подключите GitHub-репозиторий.
-2. Проверьте значения `N8N_WEBHOOK_URL` и `CALLBACK_URL` в настройках сервиса.
+2. Проверьте значения `N8N_AUTOFILL_WEBHOOK_URL` и `PUBLIC_BASE_URL`.
 3. Создайте сервис и дождитесь завершения сборки.
 
-Сейчас в `render.yaml` указан `/webhook-test/`: он работает только пока в n8n
-включено ожидание тестового события. Для постоянной работы активируйте workflow
-и замените URL на `/webhook/tender-autofill`. Переменная `VITE_API_URL` на
-Render не нужна: frontend обращается к API на том же домене.
+В `render.yaml` указан production webhook `/webhook/tender-autofill`. Workflow
+n8n должен быть активирован. Переменная `VITE_API_URL` на Render не нужна:
+frontend обращается к API на том же домене.
 
 Backend отправляет в n8n:
 

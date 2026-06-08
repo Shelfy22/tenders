@@ -59,13 +59,18 @@ export function completeJobFromCallback(
   };
   job.progress = "Готово";
   job.status = "done";
+  console.log("[autofill/result] completed job:", job.id);
   return job;
 }
 
 async function processJob(job: AutofillJob): Promise<void> {
   try {
-    const webhookUrl = process.env.N8N_WEBHOOK_URL?.trim();
+    const webhookUrl =
+      process.env.N8N_AUTOFILL_WEBHOOK_URL?.trim() ||
+      process.env.N8N_WEBHOOK_URL?.trim();
+
     if (!webhookUrl) {
+      console.warn("[autofill/start] n8n webhook URL is empty; using mock result");
       await advanceProgress(job);
       job.result = createMockN8nResult();
       job.progress = "Готово";
@@ -74,8 +79,12 @@ async function processJob(job: AutofillJob): Promise<void> {
     }
 
     void advanceProgress(job);
-    const callbackUrl = process.env.CALLBACK_URL?.trim();
-    if (!callbackUrl) throw new Error("CALLBACK_URL не настроен");
+    const callbackUrl =
+      process.env.CALLBACK_URL?.trim() ||
+      buildCallbackUrl(process.env.PUBLIC_BASE_URL);
+    if (!callbackUrl) {
+      throw new Error("PUBLIC_BASE_URL or CALLBACK_URL is not configured");
+    }
 
     const result = await callN8nWebhook(
       webhookUrl,
@@ -83,7 +92,8 @@ async function processJob(job: AutofillJob): Promise<void> {
       job.tenderUrl,
       callbackUrl
     );
-    // Callback normally completes the job first; the webhook response is a fallback.
+
+    // Callback normally completes the job first; JSON webhook output is a fallback.
     if (job.status === "processing" && result?.fields) {
       completeJobFromCallback(job.tenderCardId, job.tenderUrl, result);
     }
@@ -91,8 +101,14 @@ async function processJob(job: AutofillJob): Promise<void> {
     if (job.status === "processing") {
       job.status = "error";
       job.error = error instanceof Error ? error.message : "Неизвестная ошибка";
+      console.error("[autofill/start] n8n request failed:", job.error);
     }
   }
+}
+
+function buildCallbackUrl(publicBaseUrl: string | undefined): string {
+  const baseUrl = publicBaseUrl?.trim().replace(/\/+$/, "");
+  return baseUrl ? `${baseUrl}/api/tender-autofill/result` : "";
 }
 
 async function advanceProgress(job: AutofillJob): Promise<void> {

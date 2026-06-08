@@ -36,7 +36,17 @@ app.post("/api/tender-autofill/start", (req, res) => {
     return;
   }
   const job = startJob(tenderCardId, tenderUrl);
-  res.status(202).json({ jobId: job.id, status: job.status });
+  const n8nConfigured = Boolean(
+    process.env.N8N_AUTOFILL_WEBHOOK_URL?.trim() ||
+    process.env.N8N_WEBHOOK_URL?.trim()
+  );
+  console.log("[autofill/start] accepted job:", {
+    jobId: job.id,
+    tenderCardId,
+    tenderUrl,
+    n8nConfigured
+  });
+  res.status(202).json({ jobId: job.id, status: job.status, n8nConfigured });
 });
 
 app.get("/api/tender-autofill/status/:jobId", (req, res) => {
@@ -110,4 +120,12 @@ if (process.env.NODE_ENV === "production") {
 
 app.listen(port, "0.0.0.0", () => {
   console.log(`Tender API: http://localhost:${port}`);
+  console.log(
+    "[startup] n8n configured:",
+    Boolean(
+      process.env.N8N_AUTOFILL_WEBHOOK_URL?.trim() ||
+      process.env.N8N_WEBHOOK_URL?.trim()
+    )
+  );
+  console.log("[startup] public base URL:", process.env.PUBLIC_BASE_URL || "(empty)");
 });

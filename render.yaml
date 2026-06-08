@@ -9,7 +9,7 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: N8N_WEBHOOK_URL
+      - key: N8N_AUTOFILL_WEBHOOK_URL
         value: https://halonkjurusun.beget.app/webhook/tender-autofill
-      - key: CALLBACK_URL
-        value: https://tenders-6pb1.onrender.com/api/tender-autofill/result
+      - key: PUBLIC_BASE_URL
+        value: https://tenders-6pb1.onrender.com
