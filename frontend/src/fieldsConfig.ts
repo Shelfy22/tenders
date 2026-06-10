@@ -68,7 +68,7 @@ export const fieldsConfig: FieldConfig[] = [
   { key: "counterpartyNote", label: "Примечание к контрагенту", section: "Контрагент", type: "textarea" },
   { key: "op", label: "ОП", section: "Контрагент", important: true },
 
-  { key: "legalEntity", label: "Юридическое лицо ЭТМ", section: "ЭТМ и статусы", type: "select", important: true, options: [empty, { value: "149", label: "149 фирма" }, { value: "202", label: "202 ТД Электротехмонтаж" }] },
+  { key: "legalEntity", label: "Юридическое лицо ЭТМ", section: "ЭТМ и статусы", important: true },
   { key: "tenderSubmittedDate", label: "Тендер подан", section: "ЭТМ и статусы", type: "date" },
   { key: "tenderWonDate", label: "Тендер выигран", section: "ЭТМ и статусы", type: "date" },
 
