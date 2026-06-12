@@ -20,6 +20,10 @@ const frontendDirectory = path.resolve(currentDirectory, "../../frontend/dist");
 app.use(cors());
 app.use(express.json({ limit: "5mb" }));
 
+app.get("/api/health", (_req, res) => {
+  res.json({ status: "ok" });
+});
+
 app.post("/api/tender-autofill/start", (req, res) => {
   const { tenderCardId, tenderUrl } = req.body as {
     tenderCardId?: number;

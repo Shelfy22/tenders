@@ -1,0 +1,15 @@
+services:
+  tender-autofill:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tender-autofill:latest
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-4000}:4000"
+    environment:
+      PORT: "4000"
+      NODE_ENV: production
+      N8N_AUTOFILL_WEBHOOK_URL: ${N8N_AUTOFILL_WEBHOOK_URL}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
+      N8N_JOB_TIMEOUT_MS: ${N8N_JOB_TIMEOUT_MS:-1200000}
