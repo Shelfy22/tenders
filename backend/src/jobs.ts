@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
 import {
   callN8nWebhook,
+  callN8nWebhookWithDocuments,
   createEmptyAutofillFields,
   createMockN8nResult
 } from "./mockN8n.js";
+import type { AutofillDocument } from "./mockN8n.js";
 import type { AutofillJob, AutofillResult } from "./types.js";
 
 const jobs = new Map<string, AutofillJob>();
@@ -20,7 +22,11 @@ export function getJob(id: string): AutofillJob | undefined {
   return jobs.get(id);
 }
 
-export function startJob(tenderCardId: number, tenderUrl: string): AutofillJob {
+export function startJob(
+  tenderCardId: number,
+  tenderUrl: string,
+  documents: AutofillDocument[] = []
+): AutofillJob {
   const job: AutofillJob = {
     id: `af_${randomUUID().replaceAll("-", "").slice(0, 12)}`,
     tenderCardId,
@@ -30,7 +36,7 @@ export function startJob(tenderCardId: number, tenderUrl: string): AutofillJob {
   };
   jobs.set(job.id, job);
   scheduleJobTimeout(job);
-  void processJob(job);
+  void processJob(job, documents);
   return job;
 }
 
@@ -69,11 +75,17 @@ export function completeJobFromCallback(
   return job;
 }
 
-async function processJob(job: AutofillJob): Promise<void> {
+async function processJob(
+  job: AutofillJob,
+  documents: AutofillDocument[]
+): Promise<void> {
   try {
-    const webhookUrl =
-      process.env.N8N_AUTOFILL_WEBHOOK_URL?.trim() ||
-      process.env.N8N_WEBHOOK_URL?.trim();
+    const webhookUrl = documents.length
+      ? process.env.N8N_DOCUMENTS_WEBHOOK_URL?.trim() ||
+        process.env.N8N_AUTOFILL_WEBHOOK_URL?.trim() ||
+        process.env.N8N_WEBHOOK_URL?.trim()
+      : process.env.N8N_AUTOFILL_WEBHOOK_URL?.trim() ||
+        process.env.N8N_WEBHOOK_URL?.trim();
 
     if (!webhookUrl) {
       console.warn("[autofill/start] n8n webhook URL is empty; using mock result");
@@ -92,13 +104,22 @@ async function processJob(job: AutofillJob): Promise<void> {
       throw new Error("PUBLIC_BASE_URL or CALLBACK_URL is not configured");
     }
 
-    const result = await callN8nWebhook(
-      webhookUrl,
-      job.id,
-      job.tenderCardId,
-      job.tenderUrl,
-      callbackUrl
-    );
+    const result = documents.length
+      ? await callN8nWebhookWithDocuments(
+          webhookUrl,
+          job.id,
+          job.tenderCardId,
+          job.tenderUrl,
+          callbackUrl,
+          documents
+        )
+      : await callN8nWebhook(
+          webhookUrl,
+          job.id,
+          job.tenderCardId,
+          job.tenderUrl,
+          callbackUrl
+        );
 
     // Callback normally completes the job first; JSON webhook output is a fallback.
     if (job.status === "processing" && result?.fields) {

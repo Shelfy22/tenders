@@ -1,5 +1,12 @@
 import type { AutofillResult } from "./types.js";
 
+export interface AutofillDocument {
+  originalName: string;
+  mimeType: string;
+  size: number;
+  buffer: Buffer;
+}
+
 export function createEmptyAutofillFields(): AutofillResult["fields"] {
   return {
     dateCreated: "",
@@ -152,6 +159,73 @@ export async function callN8nWebhook(
     return JSON.parse(responseText) as AutofillResult;
   } catch {
     console.warn("[autofill/start] n8n returned invalid JSON; waiting for callback");
+    return undefined;
+  }
+}
+
+export async function callN8nWebhookWithDocuments(
+  webhookUrl: string,
+  requestId: string,
+  tenderCardId: number,
+  tenderUrl: string,
+  callbackUrl: string,
+  documents: AutofillDocument[]
+): Promise<AutofillResult | undefined> {
+  const form = new FormData();
+  form.append("requestId", requestId);
+  form.append("tenderCardId", String(tenderCardId));
+  form.append("tenderUrl", tenderUrl);
+  form.append("callbackUrl", callbackUrl);
+  form.append("documentCount", String(documents.length));
+  form.append(
+    "documentManifest",
+    JSON.stringify(
+      documents.map(({ originalName, mimeType, size }, index) => ({
+        field: `document_${index + 1}`,
+        originalName,
+        mimeType,
+        size
+      }))
+    )
+  );
+  documents.forEach((document, index) => {
+    form.append(
+      `document_${index + 1}`,
+      new Blob([new Uint8Array(document.buffer)], { type: document.mimeType }),
+      document.originalName
+    );
+  });
+
+  console.log("[autofill/documents] calling n8n:", webhookUrl);
+  console.log("[autofill/documents] payload:", {
+    requestId,
+    tenderCardId,
+    tenderUrl,
+    callbackUrl,
+    documents: documents.map(({ originalName, mimeType, size }) => ({
+      originalName,
+      mimeType,
+      size
+    }))
+  });
+
+  const response = await fetch(webhookUrl, { method: "POST", body: form });
+  const responseText = await response.text();
+  console.log("[autofill/documents] n8n status:", response.status);
+  console.log("[autofill/documents] n8n response preview:", responseText.slice(0, 300));
+
+  if (!response.ok) {
+    throw new Error(
+      `n8n documents webhook returned ${response.status}: ${responseText.slice(0, 500)}`
+    );
+  }
+  if (!(response.headers.get("content-type") ?? "").includes("application/json")) {
+    return undefined;
+  }
+  try {
+    return JSON.parse(responseText) as AutofillResult;
+  } catch {
+    console.warn("[autofill/documents] n8n returned invalid JSON; waiting for callback");
     return undefined;
   }
 }

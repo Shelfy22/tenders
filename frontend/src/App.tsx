@@ -1,5 +1,10 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { getAutofillStatus, saveTenderCard, startAutofill } from "./api";
+import {
+  getAutofillStatus,
+  saveTenderCard,
+  startAutofill,
+  startAutofillWithDocuments
+} from "./api";
 import { fieldsConfig, initialCard } from "./fieldsConfig";
 import type { AutofillStatusResponse, TenderCard } from "./types";
 
@@ -16,7 +21,9 @@ function displayValue(value: TenderCard[keyof TenderCard] | undefined): string {
 export default function App() {
   const [card, setCard] = useState<TenderCard>(initialCard);
   const [modalOpen, setModalOpen] = useState(false);
+  const [autofillMode, setAutofillMode] = useState<"url" | "documents">("url");
   const [tenderUrl, setTenderUrl] = useState("");
+  const [documents, setDocuments] = useState<File[]>([]);
   const [jobId, setJobId] = useState("");
   const [progress, setProgress] = useState("");
   const [result, setResult] = useState<Extract<AutofillStatusResponse, { status: "done" }> | null>(null);
@@ -80,11 +87,13 @@ export default function App() {
     });
   };
 
-  const openModal = () => {
+  const openModal = (mode: "url" | "documents") => {
     setError("");
     setProgress("");
     setResult(null);
     setJobId("");
+    setAutofillMode(mode);
+    setDocuments([]);
     setModalOpen(true);
   };
 
@@ -97,7 +106,10 @@ export default function App() {
     setError("");
     setResult(null);
     try {
-      const job = await startAutofill(tenderUrl.trim());
+      const job =
+        autofillMode === "documents"
+          ? await startAutofillWithDocuments(tenderUrl.trim(), documents)
+          : await startAutofill(tenderUrl.trim());
       setProgress("Определяем ЭТП");
       setJobId(job.jobId);
     } catch (requestError) {
@@ -144,7 +156,10 @@ export default function App() {
           <h1>Карточка тендера</h1>
           <p className="subtitle">Заполните данные вручную или загрузите их из документации ЭТП.</p>
         </div>
-        <button className="button button-secondary" onClick={openModal}>Автозаполнение</button>
+        <div className="header-actions">
+          <button className="button button-secondary" onClick={() => openModal("url")}>Автозаполнение</button>
+          <button className="button button-primary" onClick={() => openModal("documents")}>Автозаполнение + документы</button>
+        </div>
       </header>
 
       {notice && <div className="alert alert-success">{notice}</div>}
@@ -223,7 +238,14 @@ export default function App() {
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeModal()}>
           <section className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
             <div className="modal-header">
-              <div><p className="eyebrow">Помощник</p><h2 id="modal-title">Автозаполнение карточки</h2></div>
+              <div>
+                <p className="eyebrow">Помощник</p>
+                <h2 id="modal-title">
+                  {autofillMode === "documents"
+                    ? "Автозаполнение + документы"
+                    : "Автозаполнение карточки"}
+                </h2>
+              </div>
               <button className="icon-button" onClick={closeModal} aria-label="Закрыть">×</button>
             </div>
 
@@ -239,6 +261,44 @@ export default function App() {
                     onChange={(event) => setTenderUrl(event.target.value)}
                   />
                 </label>
+                {autofillMode === "documents" && (
+                  <div className="field upload-field">
+                    <span className="field-label">Документы тендера</span>
+                    <label className={`file-picker ${processing ? "file-picker-disabled" : ""}`}>
+                      <input
+                        type="file"
+                        multiple
+                        disabled={processing}
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf,.zip"
+                        onChange={(event) => setDocuments(Array.from(event.target.files ?? []))}
+                      />
+                      <strong>Выбрать документы</strong>
+                      <span>До 15 файлов, каждый не более 25 МБ</span>
+                    </label>
+                    {documents.length > 0 && (
+                      <div className="file-list">
+                        {documents.map((document, index) => (
+                          <div className="file-item" key={`${document.name}-${document.lastModified}`}>
+                            <span>{document.name}</span>
+                            <small>{(document.size / 1024 / 1024).toFixed(2)} МБ</small>
+                            <button
+                              type="button"
+                              disabled={processing}
+                              onClick={() =>
+                                setDocuments((current) =>
+                                  current.filter((_, itemIndex) => itemIndex !== index)
+                                )
+                              }
+                              aria-label={`Удалить ${document.name}`}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {processing && (
                   <div className="progress-box">
                     <span className="spinner" />
@@ -271,7 +331,17 @@ export default function App() {
               <button className="button button-ghost" onClick={closeModal}>Отмена</button>
               {result
                 ? <button className="button button-primary" onClick={applyResult}>Применить в карточку</button>
-                : <button className="button button-primary" disabled={processing || !tenderUrl.trim()} onClick={runAutofill}>Запустить</button>}
+                : <button
+                    className="button button-primary"
+                    disabled={
+                      processing ||
+                      !tenderUrl.trim() ||
+                      (autofillMode === "documents" && documents.length === 0)
+                    }
+                    onClick={runAutofill}
+                  >
+                    Запустить
+                  </button>}
             </div>
           </section>
         </div>

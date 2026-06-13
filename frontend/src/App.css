@@ -12,6 +12,7 @@ button { cursor: pointer; }
 
 .page { width: min(1120px, calc(100% - 40px)); margin: 0 auto; padding: 44px 0 64px; }
 .page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+.header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
 h1, h2, h3, p { margin-top: 0; }
 h1 { margin-bottom: 8px; font-size: clamp(30px, 4vw, 42px); letter-spacing: -.04em; }
 h2 { margin-bottom: 0; font-size: 21px; }
@@ -62,6 +63,17 @@ textarea { resize: vertical; }
 .modal-header h2 { font-size: 23px; }
 .modal-footer { justify-content: flex-end; border-top: 1px solid #e9ecf2; }
 .modal > .field, .modal > .progress-box, .modal > .alert { margin: 22px 24px 0; }
+.upload-field { margin: 18px 24px 0; }
+.file-picker { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 104px; border: 1px dashed #aeb8e8; border-radius: 12px; background: #f7f8ff; color: #5367d7; cursor: pointer; text-align: center; }
+.file-picker:hover { background: #f0f2ff; }
+.file-picker input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.file-picker span { color: #7b8395; font-size: 12px; }
+.file-picker-disabled { cursor: not-allowed; opacity: .65; }
+.file-list { display: flex; flex-direction: column; gap: 7px; }
+.file-item { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; border: 1px solid #e2e5ed; border-radius: 9px; padding: 9px 10px; background: #fff; }
+.file-item > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.file-item small { color: #7d8596; }
+.file-item button { width: 24px; height: 24px; border: 0; border-radius: 6px; background: #eef0f5; color: #5d6575; font-size: 18px; line-height: 1; }
 .progress-box { display: flex; align-items: center; gap: 14px; border: 1px solid #d9def8; border-radius: 12px; background: #f4f6ff; padding: 16px; }
 .progress-box p { margin: 4px 0 0; color: #667084; font-size: 14px; }
 .spinner { width: 24px; height: 24px; flex: 0 0 auto; border: 3px solid #ccd3f7; border-top-color: #5367d7; border-radius: 50%; animation: spin .8s linear infinite; }
@@ -85,6 +97,7 @@ textarea { resize: vertical; }
 @media (max-width: 720px) {
   .page { width: min(100% - 24px, 1120px); padding-top: 24px; }
   .page-header { align-items: stretch; flex-direction: column; }
+  .header-actions { align-items: stretch; flex-direction: column; }
   .page-header .button { width: 100%; }
   .form-grid, .preview-list { grid-template-columns: 1fr; }
   .directions-grid { grid-template-columns: 1fr; }

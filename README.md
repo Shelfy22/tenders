@@ -122,3 +122,23 @@ Backend отправляет в n8n:
 ```
 
 n8n отправляет найденные `fields`, `meta` и `warnings` обратно на callback.
+
+### Автозаполнение с документами
+
+Вторая кнопка отправляет multipart-запрос в
+`POST /api/tender-autofill/start-with-documents`. Backend пересылает его в
+`N8N_DOCUMENTS_WEBHOOK_URL`. Если эта переменная не задана, используется
+`N8N_AUTOFILL_WEBHOOK_URL`.
+
+Текстовые multipart-поля для n8n:
+
+- `requestId`
+- `tenderCardId`
+- `tenderUrl`
+- `callbackUrl`
+- `documentCount`
+- `documentManifest` — JSON со списком файлов
+
+Бинарные поля называются `document_1`, `document_2` и далее. Workflow должен
+прочитать их из `$binary`, обработать документы и отправить обычный callback
+на `callbackUrl`. Разрешено до 15 файлов, не более 25 МБ каждый и 75 МБ суммарно.
