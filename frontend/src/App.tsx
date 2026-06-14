@@ -269,7 +269,7 @@ export default function App() {
                         type="file"
                         multiple
                         disabled={processing}
-                        accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf,.zip"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf,.zip,.7z,.rar,application/zip,application/x-7z-compressed,application/vnd.rar,application/x-rar-compressed"
                         onChange={(event) => setDocuments(Array.from(event.target.files ?? []))}
                       />
                       <strong>Выбрать документы</strong>
