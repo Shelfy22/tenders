@@ -130,6 +130,11 @@ n8n отправляет найденные `fields`, `meta` и `warnings` об�
 `N8N_DOCUMENTS_WEBHOOK_URL`. Если эта переменная не задана, используется
 `N8N_AUTOFILL_WEBHOOK_URL`.
 
+Текущие production webhook:
+
+- «Автозаполнение» — `https://halonkjurusun.beget.app/webhook/tender-autofill1`
+- «Автозаполнение + документы» — `https://halonkjurusun.beget.app/webhook/tender-autofill`
+
 Текстовые multipart-поля для n8n:
 
 - `requestId`
