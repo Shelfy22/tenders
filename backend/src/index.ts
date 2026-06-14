@@ -45,10 +45,7 @@ app.post("/api/tender-autofill/start", (req, res) => {
     return;
   }
   const job = startJob(tenderCardId, tenderUrl);
-  const n8nConfigured = Boolean(
-    process.env.N8N_AUTOFILL_WEBHOOK_URL?.trim() ||
-    process.env.N8N_WEBHOOK_URL?.trim()
-  );
+  const n8nConfigured = true;
   console.log("[autofill/start] accepted job:", {
     jobId: job.id,
     tenderCardId,
@@ -99,8 +96,7 @@ app.post(
     );
     const n8nConfigured = Boolean(
       process.env.N8N_DOCUMENTS_WEBHOOK_URL?.trim() ||
-      process.env.N8N_AUTOFILL_WEBHOOK_URL?.trim() ||
-      process.env.N8N_WEBHOOK_URL?.trim()
+      "https://halonkjurusun.beget.app/webhook/tender-autofill"
     );
     console.log("[autofill/documents] accepted job:", {
       jobId: job.id,
@@ -238,15 +234,15 @@ if (process.env.NODE_ENV === "production") {
 
 app.listen(port, "0.0.0.0", () => {
   console.log(`Tender API: http://localhost:${port}`);
-  const autofillWebhookConfigured = Boolean(
-    process.env.N8N_AUTOFILL_WEBHOOK_URL?.trim() ||
-    process.env.N8N_WEBHOOK_URL?.trim()
-  );
-  console.log("[startup] n8n autofill configured:", autofillWebhookConfigured);
   console.log(
-    "[startup] n8n documents configured:",
-    Boolean(process.env.N8N_DOCUMENTS_WEBHOOK_URL?.trim()) ||
-      autofillWebhookConfigured
+    "[startup] n8n autofill URL:",
+    process.env.N8N_AUTOFILL_ONLY_WEBHOOK_URL ||
+      "https://halonkjurusun.beget.app/webhook/tender-autofill1"
+  );
+  console.log(
+    "[startup] n8n documents URL:",
+    process.env.N8N_DOCUMENTS_WEBHOOK_URL ||
+      "https://halonkjurusun.beget.app/webhook/tender-autofill"
   );
   console.log("[startup] public base URL:", process.env.PUBLIC_BASE_URL || "(empty)");
 });

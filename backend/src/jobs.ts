@@ -9,6 +9,10 @@ import type { AutofillDocument } from "./mockN8n.js";
 import type { AutofillJob, AutofillResult } from "./types.js";
 
 const jobs = new Map<string, AutofillJob>();
+const DEFAULT_AUTOFILL_WEBHOOK_URL =
+  "https://halonkjurusun.beget.app/webhook/tender-autofill1";
+const DEFAULT_DOCUMENTS_WEBHOOK_URL =
+  "https://halonkjurusun.beget.app/webhook/tender-autofill";
 const stages = [
   "Определяем ЭТП",
   "Скачиваем документацию",
@@ -82,10 +86,9 @@ async function processJob(
   try {
     const webhookUrl = documents.length
       ? process.env.N8N_DOCUMENTS_WEBHOOK_URL?.trim() ||
-        process.env.N8N_AUTOFILL_WEBHOOK_URL?.trim() ||
-        process.env.N8N_WEBHOOK_URL?.trim()
-      : process.env.N8N_AUTOFILL_WEBHOOK_URL?.trim() ||
-        process.env.N8N_WEBHOOK_URL?.trim();
+        DEFAULT_DOCUMENTS_WEBHOOK_URL
+      : process.env.N8N_AUTOFILL_ONLY_WEBHOOK_URL?.trim() ||
+        DEFAULT_AUTOFILL_WEBHOOK_URL;
 
     if (!webhookUrl) {
       console.warn("[autofill/start] n8n webhook URL is empty; using mock result");

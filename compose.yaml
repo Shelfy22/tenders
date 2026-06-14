@@ -10,7 +10,7 @@ services:
     environment:
       PORT: "4000"
       NODE_ENV: production
-      N8N_AUTOFILL_WEBHOOK_URL: ${N8N_AUTOFILL_WEBHOOK_URL}
+      N8N_AUTOFILL_ONLY_WEBHOOK_URL: ${N8N_AUTOFILL_ONLY_WEBHOOK_URL:-https://halonkjurusun.beget.app/webhook/tender-autofill1}
       N8N_DOCUMENTS_WEBHOOK_URL: ${N8N_DOCUMENTS_WEBHOOK_URL:-}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
       N8N_JOB_TIMEOUT_MS: ${N8N_JOB_TIMEOUT_MS:-1200000}

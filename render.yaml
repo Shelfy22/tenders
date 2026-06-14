@@ -9,7 +9,7 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: N8N_AUTOFILL_WEBHOOK_URL
+      - key: N8N_AUTOFILL_ONLY_WEBHOOK_URL
         value: https://halonkjurusun.beget.app/webhook/tender-autofill1
       - key: N8N_DOCUMENTS_WEBHOOK_URL
         value: https://halonkjurusun.beget.app/webhook/tender-autofill

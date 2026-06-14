@@ -39,8 +39,9 @@ npm run dev
 
 ## Настройка окружения
 
-Скопируйте `.env.example` в `.env`. При пустом `N8N_AUTOFILL_WEBHOOK_URL` backend
-использует mock-результат. Если URL задан, backend отправляет туда
+Скопируйте `.env.example` в `.env`. Для обычного автозаполнения используется
+`N8N_AUTOFILL_ONLY_WEBHOOK_URL`, для режима с документами —
+`N8N_DOCUMENTS_WEBHOOK_URL`. Backend отправляет туда
 `POST` с `tenderCardId`, `tenderUrl` и `callbackUrl`.
 
 Для frontend переменная `VITE_API_URL` должна быть доступна Vite. Её можно
@@ -90,7 +91,7 @@ docker compose down
 ```powershell
 docker build -t tender-autofill:latest .
 docker run --rm -p 4000:4000 `
-  -e N8N_AUTOFILL_WEBHOOK_URL=https://n8n.example.com/webhook/tender-autofill `
+  -e N8N_AUTOFILL_ONLY_WEBHOOK_URL=https://n8n.example.com/webhook/tender-autofill1 `
   -e PUBLIC_BASE_URL=https://tenders.example.com `
   tender-autofill:latest
 ```
@@ -104,12 +105,14 @@ docker run --rm -p 4000:4000 `
 API и production-сборку React с одного домена.
 
 1. В Render выберите **New → Blueprint** и подключите GitHub-репозиторий.
-2. Проверьте значения `N8N_AUTOFILL_WEBHOOK_URL` и `PUBLIC_BASE_URL`.
+2. Проверьте значения `N8N_AUTOFILL_ONLY_WEBHOOK_URL`,
+   `N8N_DOCUMENTS_WEBHOOK_URL` и `PUBLIC_BASE_URL`.
 3. Создайте сервис и дождитесь завершения сборки.
 
-В `render.yaml` указан production webhook `/webhook/tender-autofill`. Workflow
-n8n должен быть активирован. Переменная `VITE_API_URL` на Render не нужна:
-frontend обращается к API на том же домене.
+В `render.yaml` указаны отдельные production webhook для обычного
+автозаполнения и режима с документами. Оба workflow n8n должны быть
+активированы. Переменная `VITE_API_URL` на Render не нужна: frontend обращается
+к API на том же домене.
 
 Backend отправляет в n8n:
 
@@ -127,8 +130,7 @@ n8n отправляет найденные `fields`, `meta` и `warnings` об�
 
 Вторая кнопка отправляет multipart-запрос в
 `POST /api/tender-autofill/start-with-documents`. Backend пересылает его в
-`N8N_DOCUMENTS_WEBHOOK_URL`. Если эта переменная не задана, используется
-`N8N_AUTOFILL_WEBHOOK_URL`.
+`N8N_DOCUMENTS_WEBHOOK_URL`.
 
 Текущие production webhook:
 
