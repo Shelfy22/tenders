@@ -16,6 +16,7 @@ export function createEmptyAutofillFields(): AutofillResult["fields"] {
     federalLaw: "",
     stateDefenseOrder: "",
     tenderStatus: "",
+    tenderStatusReason: "",
     tenderStatusNote: "",
     tenderGroup: "",
     initialPrice: "",

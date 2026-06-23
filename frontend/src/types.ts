@@ -8,6 +8,7 @@ export interface AutofillFields {
   federalLaw: string;
   stateDefenseOrder: string;
   tenderStatus: string;
+  tenderStatusReason: string;
   tenderStatusNote: string;
   tenderGroup: string;
   initialPrice: string;
