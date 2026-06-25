@@ -386,7 +386,7 @@ export default function App() {
                       processing ||
                       (autofillMode === "documents"
                         ? !tenderUrl.trim() || documents.length === 0
-                        : !seldonId.trim() || !etpId.trim() || !purchaseType)
+                        : (!seldonId.trim() && !etpId.trim()) || !purchaseType)
                     }
                     onClick={runAutofill}
                   >

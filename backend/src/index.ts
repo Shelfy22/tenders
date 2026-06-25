@@ -42,11 +42,10 @@ app.post("/api/tender-autofill/start", (req, res) => {
   if (
     typeof tenderCardId !== "number" ||
     !Number.isInteger(tenderCardId) ||
-    !normalizedSeldonId ||
-    !normalizedEtpId ||
+    (!normalizedSeldonId && !normalizedEtpId) ||
     !normalizedPurchaseType
   ) {
-    res.status(400).json({ status: "error", error: "tenderCardId, seldonId, etpId и purchaseType обязательны" });
+    res.status(400).json({ status: "error", error: "tenderCardId, один из seldonId/etpId и purchaseType обязательны" });
     return;
   }
   const job = startJob(tenderCardId, {
@@ -193,8 +192,8 @@ app.patch("/api/tender-card/:id", (req, res) => {
 });
 
 app.post("/api/n8n-webhook-mock/tender-autofill", (req, res) => {
-  if (!req.body?.seldonId || !req.body?.etpId || !req.body?.purchaseType) {
-    res.status(400).json({ error: "seldonId, etpId и purchaseType обязательны" });
+  if ((!req.body?.seldonId && !req.body?.etpId) || !req.body?.purchaseType) {
+    res.status(400).json({ error: "один из seldonId/etpId и purchaseType обязательны" });
     return;
   }
   // В реальном проекте backend вызывает POST https://n8n.example.com/webhook/tender-autofill.
