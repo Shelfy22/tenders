@@ -56,7 +56,10 @@ export interface AutofillResult {
 export interface AutofillJob {
   id: string;
   tenderCardId: number;
-  tenderUrl: string;
+  tenderUrl?: string;
+  seldonId?: string;
+  etpId?: string;
+  purchaseType?: string;
   status: "processing" | "done" | "error";
   progress: string;
   result?: AutofillResult;

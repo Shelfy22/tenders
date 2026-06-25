@@ -30,26 +30,37 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.post("/api/tender-autofill/start", (req, res) => {
-  const { tenderCardId, tenderUrl } = req.body as {
+  const { tenderCardId, seldonId, etpId, purchaseType } = req.body as {
     tenderCardId?: number;
-    tenderUrl?: string;
+    seldonId?: string;
+    etpId?: string;
+    purchaseType?: string;
   };
-  if (typeof tenderCardId !== "number" || !Number.isInteger(tenderCardId) || !tenderUrl?.trim()) {
-    res.status(400).json({ status: "error", error: "tenderCardId и tenderUrl обязательны" });
+  const normalizedSeldonId = String(seldonId ?? "").trim();
+  const normalizedEtpId = String(etpId ?? "").trim();
+  const normalizedPurchaseType = String(purchaseType ?? "").trim();
+  if (
+    typeof tenderCardId !== "number" ||
+    !Number.isInteger(tenderCardId) ||
+    !normalizedSeldonId ||
+    !normalizedEtpId ||
+    !normalizedPurchaseType
+  ) {
+    res.status(400).json({ status: "error", error: "tenderCardId, seldonId, etpId и purchaseType обязательны" });
     return;
   }
-  try {
-    new URL(tenderUrl);
-  } catch {
-    res.status(400).json({ status: "error", error: "Некорректная ссылка на тендер" });
-    return;
-  }
-  const job = startJob(tenderCardId, tenderUrl);
+  const job = startJob(tenderCardId, {
+    seldonId: normalizedSeldonId,
+    etpId: normalizedEtpId,
+    purchaseType: normalizedPurchaseType
+  });
   const n8nConfigured = true;
   console.log("[autofill/start] accepted job:", {
     jobId: job.id,
     tenderCardId,
-    tenderUrl,
+    seldonId: normalizedSeldonId,
+    etpId: normalizedEtpId,
+    purchaseType: normalizedPurchaseType,
     n8nConfigured
   });
   res.status(202).json({ jobId: job.id, status: job.status, n8nConfigured });
@@ -86,7 +97,7 @@ app.post(
 
     const job = startJob(
       tenderCardId,
-      tenderUrl,
+      { tenderUrl },
       files.map((file) => ({
         originalName: file.originalname,
         mimeType: file.mimetype || "application/octet-stream",
@@ -182,8 +193,8 @@ app.patch("/api/tender-card/:id", (req, res) => {
 });
 
 app.post("/api/n8n-webhook-mock/tender-autofill", (req, res) => {
-  if (!req.body?.tenderUrl) {
-    res.status(400).json({ error: "tenderUrl обязателен" });
+  if (!req.body?.seldonId || !req.body?.etpId || !req.body?.purchaseType) {
+    res.status(400).json({ error: "seldonId, etpId и purchaseType обязательны" });
     return;
   }
   // В реальном проекте backend вызывает POST https://n8n.example.com/webhook/tender-autofill.

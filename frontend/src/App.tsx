@@ -9,6 +9,12 @@ import { fieldsConfig, initialCard } from "./fieldsConfig";
 import type { AutofillStatusResponse, TenderCard } from "./types";
 
 const confidenceLabels = { high: "Высокая", medium: "Средняя", low: "Низкая" };
+const purchaseTypeOptions = [
+  "223-ФЗ",
+  "44/94-ФЗ",
+  "Коммерческие закупки",
+  "Международные закупки"
+];
 
 function hasValue(value: TenderCard[keyof TenderCard] | undefined): boolean {
   return Array.isArray(value) ? value.length > 0 : value !== "" && value !== undefined;
@@ -23,6 +29,9 @@ export default function App() {
   const [modalOpen, setModalOpen] = useState(false);
   const [autofillMode, setAutofillMode] = useState<"url" | "documents">("url");
   const [tenderUrl, setTenderUrl] = useState("");
+  const [seldonId, setSeldonId] = useState("");
+  const [etpId, setEtpId] = useState("");
+  const [purchaseType, setPurchaseType] = useState("");
   const [documents, setDocuments] = useState<File[]>([]);
   const [jobId, setJobId] = useState("");
   const [progress, setProgress] = useState("");
@@ -109,7 +118,11 @@ export default function App() {
       const job =
         autofillMode === "documents"
           ? await startAutofillWithDocuments(tenderUrl.trim(), documents)
-          : await startAutofill(tenderUrl.trim());
+          : await startAutofill({
+              seldonId: seldonId.trim(),
+              etpId: etpId.trim(),
+              purchaseType
+            });
       setProgress("Определяем ЭТП");
       setJobId(job.jobId);
     } catch (requestError) {
@@ -251,16 +264,52 @@ export default function App() {
 
             {!result && (
               <>
-                <label className="field">
-                  <span className="field-label">Ссылка на тендер</span>
-                  <input
-                    type="url"
-                    placeholder="https://zakupki.gov.ru/..."
-                    value={tenderUrl}
-                    disabled={processing}
-                    onChange={(event) => setTenderUrl(event.target.value)}
-                  />
-                </label>
+                {autofillMode === "documents" ? (
+                  <label className="field">
+                    <span className="field-label">Ссылка на тендер</span>
+                    <input
+                      type="url"
+                      placeholder="https://zakupki.gov.ru/..."
+                      value={tenderUrl}
+                      disabled={processing}
+                      onChange={(event) => setTenderUrl(event.target.value)}
+                    />
+                  </label>
+                ) : (
+                  <div className="modal-field-grid">
+                    <label className="field">
+                      <span className="field-label">seldonId</span>
+                      <input
+                        type="text"
+                        value={seldonId}
+                        disabled={processing}
+                        onChange={(event) => setSeldonId(event.target.value)}
+                      />
+                    </label>
+                    <label className="field">
+                      <span className="field-label">etpId</span>
+                      <input
+                        type="text"
+                        value={etpId}
+                        disabled={processing}
+                        onChange={(event) => setEtpId(event.target.value)}
+                      />
+                    </label>
+                    <label className="field">
+                      <span className="field-label">Тип закупки</span>
+                      <select
+                        value={purchaseType}
+                        disabled={processing}
+                        onChange={(event) => setPurchaseType(event.target.value)}
+                      >
+                        <option value="">Выбрать...</option>
+                        {purchaseTypeOptions.map((option) => (
+                          <option value={option} key={option}>{option}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                )}
                 {autofillMode === "documents" && (
                   <div className="field upload-field">
                     <span className="field-label">Документы тендера</span>
@@ -335,8 +384,9 @@ export default function App() {
                     className="button button-primary"
                     disabled={
                       processing ||
-                      !tenderUrl.trim() ||
-                      (autofillMode === "documents" && documents.length === 0)
+                      (autofillMode === "documents"
+                        ? !tenderUrl.trim() || documents.length === 0
+                        : !seldonId.trim() || !etpId.trim() || !purchaseType)
                     }
                     onClick={runAutofill}
                   >

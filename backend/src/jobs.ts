@@ -8,6 +8,13 @@ import {
 import type { AutofillDocument } from "./mockN8n.js";
 import type { AutofillJob, AutofillResult } from "./types.js";
 
+export interface AutofillStartData {
+  tenderUrl?: string;
+  seldonId?: string;
+  etpId?: string;
+  purchaseType?: string;
+}
+
 const jobs = new Map<string, AutofillJob>();
 const DEFAULT_AUTOFILL_WEBHOOK_URL =
   "https://halonkjurusun.beget.app/webhook/tender-autofill1";
@@ -28,13 +35,13 @@ export function getJob(id: string): AutofillJob | undefined {
 
 export function startJob(
   tenderCardId: number,
-  tenderUrl: string,
+  startData: AutofillStartData,
   documents: AutofillDocument[] = []
 ): AutofillJob {
   const job: AutofillJob = {
     id: `af_${randomUUID().replaceAll("-", "").slice(0, 12)}`,
     tenderCardId,
-    tenderUrl,
+    ...startData,
     status: "processing",
     progress: stages[0]
   };
@@ -112,7 +119,7 @@ async function processJob(
           webhookUrl,
           job.id,
           job.tenderCardId,
-          job.tenderUrl,
+          job.tenderUrl ?? "",
           callbackUrl,
           documents
         )
@@ -120,7 +127,11 @@ async function processJob(
           webhookUrl,
           job.id,
           job.tenderCardId,
-          job.tenderUrl,
+          {
+            seldonId: job.seldonId ?? "",
+            etpId: job.etpId ?? "",
+            purchaseType: job.purchaseType ?? ""
+          },
           callbackUrl
         );
 

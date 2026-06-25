@@ -132,10 +132,14 @@ export async function callN8nWebhook(
   webhookUrl: string,
   requestId: string,
   tenderCardId: number,
-  tenderUrl: string,
+  input: {
+    seldonId: string;
+    etpId: string;
+    purchaseType: string;
+  },
   callbackUrl: string
 ): Promise<AutofillResult | undefined> {
-  const payload = { requestId, tenderCardId, tenderUrl, callbackUrl };
+  const payload = { requestId, tenderCardId, ...input, callbackUrl };
   console.log("[autofill/start] calling n8n:", webhookUrl);
   console.log("[autofill/start] payload:", payload);
 

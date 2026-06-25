@@ -63,6 +63,8 @@ textarea { resize: vertical; }
 .modal-header h2 { font-size: 23px; }
 .modal-footer { justify-content: flex-end; border-top: 1px solid #e9ecf2; }
 .modal > .field, .modal > .progress-box, .modal > .alert { margin: 22px 24px 0; }
+.modal-field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 22px 24px 0; }
+.modal-field-grid .field:last-child { grid-column: 1 / -1; }
 .upload-field { margin: 18px 24px 0; }
 .file-picker { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 104px; border: 1px dashed #aeb8e8; border-radius: 12px; background: #f7f8ff; color: #5367d7; cursor: pointer; text-align: center; }
 .file-picker:hover { background: #f0f2ff; }
@@ -100,6 +102,8 @@ textarea { resize: vertical; }
   .header-actions { align-items: stretch; flex-direction: column; }
   .page-header .button { width: 100%; }
   .form-grid, .preview-list { grid-template-columns: 1fr; }
+  .modal-field-grid { grid-template-columns: 1fr; }
+  .modal-field-grid .field:last-child { grid-column: auto; }
   .directions-grid { grid-template-columns: 1fr; }
   .field-wide { grid-column: auto; }
   .form-grid, .card-heading, .card-footer { padding: 20px; }

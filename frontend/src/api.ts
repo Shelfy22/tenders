@@ -2,6 +2,12 @@ import type { AutofillJob, AutofillStatusResponse, TenderCard } from "./types";
 
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:4000" : "");
 
+export interface AutofillStartInput {
+  seldonId: string;
+  etpId: string;
+  purchaseType: string;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
@@ -12,10 +18,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-export function startAutofill(tenderUrl: string): Promise<AutofillJob> {
+export function startAutofill(input: AutofillStartInput): Promise<AutofillJob> {
   return request("/api/tender-autofill/start", {
     method: "POST",
-    body: JSON.stringify({ tenderCardId: 123, tenderUrl })
+    body: JSON.stringify({ tenderCardId: 123, ...input })
   });
 }
 
