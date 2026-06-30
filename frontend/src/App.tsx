@@ -5,6 +5,7 @@ import {
   startAutofill,
   startAutofillWithDocuments
 } from "./api";
+import { parseTenderCsv, type CsvTenderRow } from "./csvImport";
 import { fieldsConfig, initialCard } from "./fieldsConfig";
 import type { AutofillStatusResponse, TenderCard } from "./types";
 
@@ -25,7 +26,13 @@ function displayValue(value: TenderCard[keyof TenderCard] | undefined): string {
 }
 
 export default function App() {
+  const [page, setPage] = useState<"card" | "tenders">("card");
   const [card, setCard] = useState<TenderCard>(initialCard);
+  const [csvRows, setCsvRows] = useState<CsvTenderRow[]>([]);
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [csvFileName, setCsvFileName] = useState("");
+  const [csvSearch, setCsvSearch] = useState("");
+  const [csvError, setCsvError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [autofillMode, setAutofillMode] = useState<"url" | "documents">("url");
   const [tenderUrl, setTenderUrl] = useState("");
@@ -71,6 +78,17 @@ export default function App() {
     [result]
   );
 
+  const filteredCsvRows = useMemo(() => {
+    const query = csvSearch.trim().toLowerCase();
+    if (!query) return csvRows;
+    return csvRows.filter((row) =>
+      Object.values(row.source).some((value) => value.toLowerCase().includes(query)) ||
+      Object.values(row.card).some((value) => displayValue(value).toLowerCase().includes(query))
+    );
+  }, [csvRows, csvSearch]);
+
+  const visibleCsvHeaders = useMemo(() => csvHeaders.slice(0, 8), [csvHeaders]);
+
   const updateField = (key: keyof TenderCard, value: string) => {
     const field = fieldsConfig.find((item) => item.key === key);
     const normalized = field?.type === "number" ? (value === "" ? "" : Number(value)) : value;
@@ -109,6 +127,45 @@ export default function App() {
   const closeModal = () => {
     setModalOpen(false);
     setJobId("");
+  };
+
+  const uploadCsv = async (file: File | undefined) => {
+    if (!file) return;
+    setCsvError("");
+    setCsvFileName(file.name);
+    try {
+      const buffer = await file.arrayBuffer();
+      let text = new TextDecoder("utf-8").decode(buffer);
+      if (text.includes("�")) {
+        text = new TextDecoder("windows-1251").decode(buffer);
+      }
+      const parsed = parseTenderCsv(text);
+      if (parsed.rows.length === 0) {
+        setCsvRows([]);
+        setCsvHeaders([]);
+        setCsvError("В CSV не найдено строк с тендерами");
+        return;
+      }
+      setCsvRows(parsed.rows);
+      setCsvHeaders(parsed.headers);
+      setCsvSearch("");
+    } catch (uploadError) {
+      setCsvError(uploadError instanceof Error ? uploadError.message : "Не удалось прочитать CSV файл");
+    }
+  };
+
+  const openTenderFromCsv = (row: CsvTenderRow) => {
+    setCard(row.card);
+    setChangedFields(
+      new Set(
+        fieldsConfig
+          .filter(({ key }) => hasValue(row.card[key]))
+          .map(({ key }) => key)
+      )
+    );
+    setNotice("Карточка заполнена данными из CSV");
+    setError("");
+    setPage("card");
   };
 
   const runAutofill = async () => {
@@ -161,6 +218,82 @@ export default function App() {
     }
   };
 
+  if (page === "tenders") {
+    return (
+      <main className="page">
+        <header className="page-header">
+          <div>
+            <p className="eyebrow">Закупки / Импорт</p>
+            <h1>Тендеры из CSV</h1>
+            <p className="subtitle">Загрузите CSV файл, найдите нужный тендер и откройте его карточку.</p>
+          </div>
+          <div className="header-actions">
+            <button className="button button-secondary" onClick={() => setPage("card")}>К карточке</button>
+            <label className="button button-primary upload-button">
+              Загрузить тендеры
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                onChange={(event) => void uploadCsv(event.target.files?.[0])}
+              />
+            </label>
+          </div>
+        </header>
+
+        {csvError && <div className="alert alert-error">{csvError}</div>}
+
+        <section className="card">
+          <div className="card-heading tenders-toolbar">
+            <div>
+              <h2>Список тендеров</h2>
+              <span>
+                {csvFileName
+                  ? `${csvFileName}: ${filteredCsvRows.length} из ${csvRows.length}`
+                  : "CSV файл пока не загружен"}
+              </span>
+            </div>
+            <label className="field tenders-search">
+              <span className="field-label">Поиск по тендерам</span>
+              <input
+                type="search"
+                placeholder="ИНН, номер, контрагент, цена..."
+                value={csvSearch}
+                onChange={(event) => setCsvSearch(event.target.value)}
+                disabled={csvRows.length === 0}
+              />
+            </label>
+          </div>
+
+          {csvRows.length === 0 ? (
+            <div className="empty-state">
+              <h3>Загрузите CSV файл</h3>
+              <p>После загрузки здесь появится интерактивная таблица. Клик по строке откроет карточку тендера и заполнит поля из CSV.</p>
+            </div>
+          ) : (
+            <div className="table-wrap">
+              <table className="tenders-table">
+                <thead>
+                  <tr>
+                    {visibleCsvHeaders.map((header) => <th key={header}>{header}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredCsvRows.map((row) => (
+                    <tr key={row.id} onClick={() => openTenderFromCsv(row)}>
+                      {visibleCsvHeaders.map((header) => (
+                        <td key={header}>{row.source[header] || "—"}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="page">
       <header className="page-header">
@@ -170,6 +303,7 @@ export default function App() {
           <p className="subtitle">Заполните данные вручную или загрузите их из документации ЭТП.</p>
         </div>
         <div className="header-actions">
+          <button className="button button-secondary" onClick={() => setPage("tenders")}>Список тендеров</button>
           <button className="button button-secondary" onClick={() => openModal("url")}>Автозаполнение</button>
           <button className="button button-primary" onClick={() => openModal("documents")}>Автозаполнение + документы</button>
         </div>
