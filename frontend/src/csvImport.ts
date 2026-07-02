@@ -10,22 +10,47 @@ export interface CsvTenderRow {
 type FieldKey = keyof AutofillFields;
 
 const extraAliases: Partial<Record<FieldKey, string[]>> = {
-  dateCreated: ["date_created", "created_at", "дата заведения"],
-  submissionDeadlineDate: ["submission_deadline_date", "окончание подачи", "дата окончания подачи"],
-  submissionDeadlineTime: ["submission_deadline_time", "время окончания подачи"],
-  tenderUrlSource: ["tender_url", "tenderUrl", "url", "link", "ссылка", "ссылка на тендер"],
-  federalLaw: ["law", "purchase_law", "тип закупки", "фз", "закон"],
-  tenderStatus: ["status", "tender_status", "статус"],
-  tenderStatusReason: ["status_reason", "tender_status_reason", "причина статуса"],
-  initialPrice: ["price", "nmck", "нмцк", "начальная цена"],
-  finalPrice: ["final_price", "конечная цена"],
-  contractDate: ["contract_date", "дата договора", "дата заключения договора"],
-  counterpartyName: ["counterparty", "customer", "название контрагента", "контрагент"],
-  counterpartyInn: ["inn", "инн", "инн контрагента"],
-  counterpartyKpp: ["kpp", "кпп", "кпп контрагента"],
-  op: ["office", "оп"],
-  legalEntity: ["legal_entity", "юр лицо", "юридическое лицо", "юридическое лицо этм"],
-  productDirections: ["directions", "product_directions", "товарные направления"]
+  dateCreated: ["date_created", "created_at", "Дата заведения"],
+  submissionDeadlineDate: ["submission_deadline_date", "Окончание подачи", "Окончание подачи дата", "Дата окончания подачи"],
+  submissionDeadlineTime: ["submission_deadline_time", "Окончание подачи время", "Время окончания подачи"],
+  tenderUrlSource: ["tender_url", "tenderUrl", "url", "link", "Ссылка", "Ссылка на тендер"],
+  federalLaw: ["law", "purchase_law", "Тип закупки", "ФЗ", "Закон", "Федеральный закон"],
+  stateDefenseOrder: ["ГосОборонЗаказ", "Гособоронзаказ"],
+  tenderStatus: ["status", "tender_status", "Статус", "Статус тендера"],
+  tenderStatusReason: ["status_reason", "tender_status_reason", "Причина статуса"],
+  tenderStatusNote: ["Примечание к статусу"],
+  tenderGroup: ["Тендерная группа"],
+  resultDate: ["Дата подведения итогов"],
+  initialPrice: ["price", "nmck", "НМЦК", "Начальная цена"],
+  finalPrice: ["final_price", "Конечная цена"],
+  contractDate: ["contract_date", "Дата договора", "Дата заключения договора"],
+  deliveryType: ["Условия отгрузки"],
+  deliveryBatchDays: ["Срок поставки партии дней"],
+  deliveryDays: ["Срок поставки"],
+  deliveryDate: ["Срок поставки время"],
+  paymentDelayDays: ["Отсрочка оплаты дней"],
+  lotDivisible: ["Лот делимый"],
+  deliveryNote: ["Примечание к постановке", "Примечание к поставке"],
+  counterpartyCode: ["Код контрагента"],
+  counterpartyName: ["counterparty", "customer", "Название контрагента", "Контрагент"],
+  counterpartyInn: ["inn", "ИНН", "ИНН контрагента"],
+  counterpartyKpp: ["kpp", "КПП", "КПП контрагента"],
+  counterpartyCkg: ["ЦКГ"],
+  counterpartyPotential: ["Потенциал"],
+  deal: ["Сделка"],
+  contract: ["Договор"],
+  counterpartyNote: ["Примечание к контрагенту"],
+  op: ["office", "ОП"],
+  legalEntity: ["legal_entity", "Юр лицо", "Юридическое лицо", "Юридическое лицо ЭТМ"],
+  tenderSubmittedDate: ["Тендер подан"],
+  tenderWonDate: ["Тендер выигран"],
+  applicationSecurity: ["Обеспечение заявки"],
+  contractSecurity: ["Обеспечение контракта"],
+  warrantySecurity: ["Обеспечение гарантийных обязательств"],
+  warrantyMonths: ["Гарантийный срок мес"],
+  nationalRegime: ["Национальный режим"],
+  specialAccount: ["Спецсчёт", "Спецсчет"],
+  productDirections: ["directions", "product_directions", "Товарные направления"]
 };
 
 const fieldAliases = new Map<string, FieldKey>();
@@ -136,7 +161,12 @@ function normalizeFieldValue(key: FieldKey, value: string): TenderCard[FieldKey]
   const field = fieldsConfig.find((item) => item.key === key);
 
   if (field?.type === "number") {
-    const normalizedNumber = Number(value.replace(/\s/g, "").replace(",", "."));
+    const normalizedNumber = Number(
+      value
+        .replace(/\s/g, "")
+        .replace(/[^\d,.-]/g, "")
+        .replace(",", ".")
+    );
     return Number.isFinite(normalizedNumber) ? normalizedNumber : "";
   }
 
