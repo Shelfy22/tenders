@@ -1,10 +1,28 @@
 services:
+  tender-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tenders
+      POSTGRES_USER: tenders
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tenders_password}
+    volumes:
+      - tender-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tenders -d tenders"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   tender-autofill:
     build:
       context: .
       dockerfile: Dockerfile
     image: tender-autofill:latest
     restart: unless-stopped
+    depends_on:
+      tender-postgres:
+        condition: service_healthy
     ports:
       - "${APP_PORT:-4000}:4000"
     environment:
@@ -14,3 +32,7 @@ services:
       N8N_DOCUMENTS_WEBHOOK_URL: ${N8N_DOCUMENTS_WEBHOOK_URL:-}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
       N8N_JOB_TIMEOUT_MS: ${N8N_JOB_TIMEOUT_MS:-1200000}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://tenders:tenders_password@tender-postgres:5432/tenders}
+
+volumes:
+  tender-postgres-data:

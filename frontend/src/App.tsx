@@ -1,13 +1,16 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
+  getActiveCsvBatch,
   getAutofillStatus,
+  getMonthlyStats,
+  getSavedTenders,
   saveTenderCard,
   startAutofill,
-  startAutofillWithDocuments
+  startAutofillWithDocuments,
+  uploadCsvBatch
 } from "./api";
-import { parseTenderCsv, type CsvTenderRow } from "./csvImport";
 import { fieldsConfig, initialCard } from "./fieldsConfig";
-import type { AutofillStatusResponse, TenderCard } from "./types";
+import type { ActiveCsvTender, AutofillStatusResponse, MonthlyStats, SavedTender, TenderCard } from "./types";
 
 const confidenceLabels = { high: "Высокая", medium: "Средняя", low: "Низкая" };
 const purchaseTypeOptions = [
@@ -26,13 +29,16 @@ function displayValue(value: TenderCard[keyof TenderCard] | undefined): string {
 }
 
 export default function App() {
-  const [page, setPage] = useState<"card" | "tenders">("card");
+  const [page, setPage] = useState<"card" | "tenders" | "saved">("card");
   const [card, setCard] = useState<TenderCard>(initialCard);
-  const [csvRows, setCsvRows] = useState<CsvTenderRow[]>([]);
+  const [selectedImportedTenderId, setSelectedImportedTenderId] = useState<number | null>(null);
+  const [csvRows, setCsvRows] = useState<ActiveCsvTender[]>([]);
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [csvFileName, setCsvFileName] = useState("");
   const [csvSearch, setCsvSearch] = useState("");
   const [csvError, setCsvError] = useState("");
+  const [savedTenders, setSavedTenders] = useState<SavedTender[]>([]);
+  const [monthlyStats, setMonthlyStats] = useState<MonthlyStats[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [autofillMode, setAutofillMode] = useState<"url" | "documents">("url");
   const [tenderUrl, setTenderUrl] = useState("");
@@ -72,6 +78,16 @@ export default function App() {
     const timer = window.setInterval(poll, 2000);
     return () => window.clearInterval(timer);
   }, [jobId, result, error]);
+
+  useEffect(() => {
+    if (page !== "tenders") return;
+    void loadActiveCsvBatch();
+  }, [page]);
+
+  useEffect(() => {
+    if (page !== "saved") return;
+    void loadSavedTenders();
+  }, [page]);
 
   const previewFields = useMemo(
     () => fieldsConfig.filter(({ key }) => result?.meta[key] || hasValue(result?.fields[key])),
@@ -129,33 +145,47 @@ export default function App() {
     setJobId("");
   };
 
-  const uploadCsv = async (file: File | undefined) => {
-    if (!file) return;
+  const loadActiveCsvBatch = async () => {
     setCsvError("");
-    setCsvFileName(file.name);
     try {
-      const buffer = await file.arrayBuffer();
-      let text = new TextDecoder("utf-8").decode(buffer);
-      if (text.includes("�")) {
-        text = new TextDecoder("windows-1251").decode(buffer);
-      }
-      const parsed = parseTenderCsv(text);
-      if (parsed.rows.length === 0) {
-        setCsvRows([]);
-        setCsvHeaders([]);
-        setCsvError("В CSV не найдено строк с тендерами");
-        return;
-      }
-      setCsvRows(parsed.rows);
-      setCsvHeaders(parsed.headers);
-      setCsvSearch("");
-    } catch (uploadError) {
-      setCsvError(uploadError instanceof Error ? uploadError.message : "Не удалось прочитать CSV файл");
+      const response = await getActiveCsvBatch();
+      setCsvRows(response.tenders);
+      setCsvHeaders(response.tenders[0] ? Object.keys(response.tenders[0].source).slice(0, 8) : []);
+      setCsvFileName(response.files.map((file) => file.fileName).join(", "));
+    } catch (requestError) {
+      setCsvError(requestError instanceof Error ? requestError.message : "Не удалось загрузить CSV тендеры");
     }
   };
 
-  const openTenderFromCsv = (row: CsvTenderRow) => {
+  const loadSavedTenders = async () => {
+    setError("");
+    try {
+      const [savedResponse, statsResponse] = await Promise.all([
+        getSavedTenders(),
+        getMonthlyStats()
+      ]);
+      setSavedTenders(savedResponse.tenders);
+      setMonthlyStats(statsResponse.months);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Не удалось загрузить сохранённые тендеры");
+    }
+  };
+
+  const uploadCsv = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setCsvError("");
+    try {
+      await uploadCsvBatch(Array.from(files).slice(0, 3));
+      await loadActiveCsvBatch();
+      setCsvSearch("");
+    } catch (uploadError) {
+      setCsvError(uploadError instanceof Error ? uploadError.message : "Не удалось загрузить CSV файлы");
+    }
+  };
+
+  const openTenderFromCsv = (row: ActiveCsvTender) => {
     setCard(row.card);
+    setSelectedImportedTenderId(row.id);
     setChangedFields(
       new Set(
         fieldsConfig
@@ -210,7 +240,7 @@ export default function App() {
     setNotice("");
     setError("");
     try {
-      const response = await saveTenderCard(card);
+      const response = await saveTenderCard(card, selectedImportedTenderId);
       setNotice(response.message);
       setChangedFields(new Set());
     } catch (requestError) {
@@ -229,12 +259,14 @@ export default function App() {
           </div>
           <div className="header-actions">
             <button className="button button-secondary" onClick={() => setPage("card")}>К карточке</button>
+            <button className="button button-secondary" onClick={() => setPage("saved")}>Сохранённые</button>
             <label className="button button-primary upload-button">
               Загрузить тендеры
               <input
                 type="file"
+                multiple
                 accept=".csv,text/csv"
-                onChange={(event) => void uploadCsv(event.target.files?.[0])}
+                onChange={(event) => void uploadCsv(event.target.files)}
               />
             </label>
           </div>
@@ -294,6 +326,88 @@ export default function App() {
     );
   }
 
+  if (page === "saved") {
+    return (
+      <main className="page">
+        <header className="page-header">
+          <div>
+            <p className="eyebrow">Закупки / Контроль качества</p>
+            <h1>Сохранённые тендеры</h1>
+            <p className="subtitle">Здесь хранится история проверенных карточек и замечаний сотрудников.</p>
+          </div>
+          <div className="header-actions">
+            <button className="button button-secondary" onClick={() => setPage("tenders")}>Список тендеров</button>
+            <button className="button button-primary" onClick={() => setPage("card")}>К карточке</button>
+          </div>
+        </header>
+
+        {error && <div className="alert alert-error">{error}</div>}
+
+        <section className="stats-grid">
+          {monthlyStats.length === 0 ? (
+            <article className="stat-card">
+              <span>Статистика</span>
+              <strong>Пока нет данных</strong>
+            </article>
+          ) : monthlyStats.map((item) => (
+            <article className="stat-card" key={item.month}>
+              <span>{item.month}</span>
+              <strong>{item.savedCount}</strong>
+              <small>с замечаниями: {item.withDiscrepancies}</small>
+            </article>
+          ))}
+        </section>
+
+        <section className="card">
+          <div className="card-heading">
+            <div>
+              <h2>Проверенные карточки</h2>
+              <span>{savedTenders.length} последних записей</span>
+            </div>
+          </div>
+          {savedTenders.length === 0 ? (
+            <div className="empty-state">
+              <h3>Пока ничего не сохранено</h3>
+              <p>После проверки карточки и нажатия «Сохранить» тендер появится здесь.</p>
+            </div>
+          ) : (
+            <div className="table-wrap">
+              <table className="tenders-table">
+                <thead>
+                  <tr>
+                    <th>Дата</th>
+                    <th>Ссылка</th>
+                    <th>Контрагент</th>
+                    <th>ИНН</th>
+                    <th>Статус</th>
+                    <th>Замечания</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {savedTenders.map((item) => (
+                    <tr key={item.id} onClick={() => {
+                      setCard(item.card);
+                      setSelectedImportedTenderId(item.importedTenderId);
+                      setChangedFields(new Set());
+                      setPage("card");
+                    }}>
+                      <td>{new Date(item.savedAt).toLocaleString("ru-RU")}</td>
+                      <td>{item.card.tenderUrlSource || "—"}</td>
+                      <td>{item.card.counterpartyName || "—"}</td>
+                      <td>{item.card.counterpartyInn || "—"}</td>
+                      <td>{item.card.tenderStatus || "—"}</td>
+                      <td>{item.discrepancyNotes || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="page">
       <header className="page-header">
@@ -304,6 +418,7 @@ export default function App() {
         </div>
         <div className="header-actions">
           <button className="button button-secondary" onClick={() => setPage("tenders")}>Список тендеров</button>
+          <button className="button button-secondary" onClick={() => setPage("saved")}>Сохранённые</button>
           <button className="button button-secondary" onClick={() => openModal("url")}>Автозаполнение</button>
           <button className="button button-primary" onClick={() => openModal("documents")}>Автозаполнение + документы</button>
         </div>
@@ -358,7 +473,7 @@ export default function App() {
                   ) : field.type === "textarea" ? (
                     <textarea
                       className={changedFields.has(field.key) ? "changed" : ""}
-                      rows={3}
+                      rows={field.key === "discrepancyNotes" ? 7 : 3}
                       value={String(card[field.key])}
                       onChange={(event) => updateField(field.key, event.target.value)}
                     />

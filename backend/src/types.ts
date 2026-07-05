@@ -42,6 +42,7 @@ export interface AutofillFields {
   nationalRegime: string;
   specialAccount: string;
   productDirections: string[];
+  discrepancyNotes: string;
 }
 
 export type TenderCard = AutofillFields;

@@ -42,6 +42,7 @@ export interface AutofillFields {
   nationalRegime: string;
   specialAccount: string;
   productDirections: string[];
+  discrepancyNotes: string;
 }
 
 export type TenderCard = AutofillFields;
@@ -51,6 +52,31 @@ export type AutofillMeta = Partial<
 export interface AutofillJob {
   jobId: string;
   status: "processing";
+}
+export interface ActiveCsvTender {
+  id: number;
+  batchId: number;
+  fileId: number;
+  rowIndex: number;
+  source: Record<string, string>;
+  card: TenderCard;
+}
+export interface ActiveCsvBatchResponse {
+  batch: { id: number; uploadedAt: string } | null;
+  files: Array<{ id: number; fileName: string; fileIndex: number }>;
+  tenders: ActiveCsvTender[];
+}
+export interface SavedTender {
+  id: number;
+  importedTenderId: number | null;
+  card: TenderCard;
+  discrepancyNotes: string;
+  savedAt: string;
+}
+export interface MonthlyStats {
+  month: string;
+  savedCount: number;
+  withDiscrepancies: number;
 }
 export type AutofillStatusResponse =
   | { status: "processing"; progress: string }

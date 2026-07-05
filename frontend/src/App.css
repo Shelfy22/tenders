@@ -70,6 +70,10 @@ textarea { resize: vertical; }
 .tenders-table td { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #313a4d; }
 .tenders-table tbody tr { cursor: pointer; transition: background .15s; }
 .tenders-table tbody tr:hover { background: #f3f5ff; }
+.stats-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+.stat-card { border: 1px solid #e0e4ec; border-radius: 16px; background: #fff; padding: 18px; box-shadow: 0 12px 28px rgba(27, 37, 62, .06); }
+.stat-card span, .stat-card small { display: block; color: #677085; font-size: 13px; }
+.stat-card strong { display: block; margin: 6px 0 4px; color: #1c2434; font-size: 28px; }
 
 .modal-backdrop { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(20, 27, 44, .58); backdrop-filter: blur(4px); }
 .modal { display: flex; flex-direction: column; width: min(760px, 100%); max-height: calc(100vh - 48px); overflow: hidden; border-radius: 18px; background: #fff; box-shadow: 0 28px 80px rgba(8, 13, 28, .3); }
@@ -117,6 +121,7 @@ textarea { resize: vertical; }
   .header-actions { align-items: stretch; flex-direction: column; }
   .page-header .button { width: 100%; }
   .form-grid, .preview-list { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: 1fr; }
   .modal-field-grid { grid-template-columns: 1fr; }
   .modal-field-grid .field:last-child { grid-column: auto; }
   .directions-grid { grid-template-columns: 1fr; }

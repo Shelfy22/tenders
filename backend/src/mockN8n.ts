@@ -49,7 +49,8 @@ export function createEmptyAutofillFields(): AutofillResult["fields"] {
     warrantyMonths: "",
     nationalRegime: "",
     specialAccount: "",
-    productDirections: []
+    productDirections: [],
+    discrepancyNotes: ""
   };
 }
 

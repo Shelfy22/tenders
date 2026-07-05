@@ -106,7 +106,8 @@ export const fieldsConfig: FieldConfig[] = [
   { key: "nationalRegime", label: "Национальный режим", section: "Обеспечения и режимы", type: "select", options: [empty, { value: "none", label: "Нет" }, { value: "ban", label: "Запрет" }, { value: "restriction", label: "Ограничение" }, { value: "preference", label: "Преимущество" }] },
   { key: "specialAccount", label: "Спецсчёт", section: "Обеспечения и режимы", type: "select", options: yesNo },
 
-  { key: "productDirections", label: "Товарные направления", section: "Товарные направления", type: "checkboxes", options: productDirections.map((value) => ({ value, label: value })) }
+  { key: "productDirections", label: "Товарные направления", section: "Товарные направления", type: "checkboxes", options: productDirections.map((value) => ({ value, label: value })) },
+  { key: "discrepancyNotes", label: "Примечания к расхождениям по колонкам тендера", section: "Контроль качества", type: "textarea" }
 ];
 
 export const initialCard: TenderCard = {
@@ -150,5 +151,6 @@ export const initialCard: TenderCard = {
   warrantyMonths: "",
   nationalRegime: "",
   specialAccount: "",
-  productDirections: []
+  productDirections: [],
+  discrepancyNotes: ""
 };

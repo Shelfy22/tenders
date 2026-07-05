@@ -4,6 +4,16 @@ import express from "express";
 import multer from "multer";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseTenderCsv } from "./csvParser.js";
+import {
+  getActiveCsvBatch,
+  getMonthlyStats,
+  initDatabase,
+  isDatabaseConfigured,
+  listSavedTenders,
+  replaceActiveCsvBatch,
+  saveTenderReview
+} from "./database.js";
 import { completeJobFromCallback, getJob, startJob } from "./jobs.js";
 import { createMockN8nResult } from "./mockN8n.js";
 import type {
@@ -21,12 +31,55 @@ const documentUpload = multer({
   storage: multer.memoryStorage(),
   limits: { files: 15, fileSize: 25 * 1024 * 1024 }
 });
+const csvUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { files: 3, fileSize: 20 * 1024 * 1024 }
+});
 
 app.use(cors());
 app.use(express.json({ limit: "5mb" }));
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });
+});
+
+app.post("/api/csv-batches/upload", csvUpload.any(), async (req, res, next) => {
+  try {
+    ensureDatabase(res);
+    if (res.headersSent) return;
+
+    const files = ((req.files as Express.Multer.File[] | undefined) ?? [])
+      .filter((file) => file.size > 0)
+      .slice(0, 3);
+    if (files.length === 0) {
+      res.status(400).json({ success: false, error: "Нужно передать CSV файлы" });
+      return;
+    }
+
+    const parsedFiles = files.map((file) => {
+      const content = file.buffer.toString("utf8");
+      const parsed = parseTenderCsv(content);
+      return {
+        fileName: file.originalname,
+        content,
+        rows: parsed.rows
+      };
+    });
+    const result = await replaceActiveCsvBatch(parsedFiles);
+    res.status(201).json({ success: true, ...result, fileCount: parsedFiles.length });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/csv-batches/active", async (_req, res, next) => {
+  try {
+    ensureDatabase(res);
+    if (res.headersSent) return;
+    res.json(await getActiveCsvBatch());
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.post("/api/tender-autofill/start", (req, res) => {
@@ -185,10 +238,48 @@ app.post("/api/tender-autofill/result", (req, res) => {
   res.json({ success: true, jobId: job.id, status: job.status });
 });
 
-app.patch("/api/tender-card/:id", (req, res) => {
-  const card = req.body as TenderCard;
-  console.log(`Сохранена карточка тендера ${req.params.id}:`, card);
-  res.json({ success: true, message: "Карточка сохранена" });
+app.patch("/api/tender-card/:id", async (req, res, next) => {
+  try {
+    ensureDatabase(res);
+    if (res.headersSent) return;
+    const { card, importedTenderId } = req.body as {
+      card?: TenderCard;
+      importedTenderId?: number | null;
+    };
+    if (!card) {
+      res.status(400).json({ success: false, error: "card обязателен" });
+      return;
+    }
+    const discrepancyNotes = String(card.discrepancyNotes ?? "").trim();
+    const savedTender = await saveTenderReview({
+      importedTenderId,
+      card,
+      discrepancyNotes
+    });
+    res.json({ success: true, message: "Карточка сохранена", savedTender });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/saved-tenders", async (_req, res, next) => {
+  try {
+    ensureDatabase(res);
+    if (res.headersSent) return;
+    res.json({ tenders: await listSavedTenders() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/stats/monthly", async (_req, res, next) => {
+  try {
+    ensureDatabase(res);
+    if (res.headersSent) return;
+    res.json({ months: await getMonthlyStats() });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.post("/api/n8n-webhook-mock/tender-autofill", (req, res) => {
@@ -235,12 +326,22 @@ app.use((error: unknown, _req: express.Request, res: express.Response, next: exp
   next(error);
 });
 
+app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error("[api] request failed:", error);
+  res.status(500).json({
+    success: false,
+    error: error instanceof Error ? error.message : "Internal server error"
+  });
+});
+
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(frontendDirectory));
   app.get("/{*path}", (_req, res) => {
     res.sendFile(path.join(frontendDirectory, "index.html"));
   });
 }
+
+await initDatabase();
 
 app.listen(port, "0.0.0.0", () => {
   console.log(`Tender API: http://localhost:${port}`);
@@ -255,4 +356,13 @@ app.listen(port, "0.0.0.0", () => {
       "https://halonkjurusun.beget.app/webhook/tender-autofill"
   );
   console.log("[startup] public base URL:", process.env.PUBLIC_BASE_URL || "(empty)");
+  console.log("[startup] database configured:", isDatabaseConfigured());
 });
+
+function ensureDatabase(res: express.Response): void {
+  if (isDatabaseConfigured()) return;
+  res.status(503).json({
+    success: false,
+    error: "DATABASE_URL is not configured"
+  });
+}
