@@ -14,6 +14,9 @@ export interface ActiveTenderRow {
   rowIndex: number;
   source: Record<string, string>;
   card: TenderCard;
+  discrepancyNotes: string;
+  reviewedAt: string | null;
+  createdAt: string;
 }
 
 export interface SavedTenderRow {
@@ -64,11 +67,14 @@ export async function initDatabase(): Promise<void> {
       row_index INTEGER NOT NULL,
       source JSONB NOT NULL,
       card JSONB NOT NULL,
+      discrepancy_notes TEXT NOT NULL DEFAULT '',
+      reviewed_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
 
     CREATE INDEX IF NOT EXISTS idx_csv_batches_active ON csv_batches(active);
     CREATE INDEX IF NOT EXISTS idx_imported_tenders_batch ON imported_tenders(batch_id);
+    CREATE INDEX IF NOT EXISTS idx_imported_tenders_created_at ON imported_tenders(created_at);
 
     CREATE TABLE IF NOT EXISTS saved_tenders (
       id SERIAL PRIMARY KEY,
@@ -79,6 +85,12 @@ export async function initDatabase(): Promise<void> {
     );
 
     CREATE INDEX IF NOT EXISTS idx_saved_tenders_saved_at ON saved_tenders(saved_at);
+  `);
+
+  await pool.query(`
+    ALTER TABLE imported_tenders
+      ADD COLUMN IF NOT EXISTS discrepancy_notes TEXT NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
   `);
 }
 
@@ -148,8 +160,14 @@ export async function getActiveCsvBatch(): Promise<{
     row_index: number;
     source: Record<string, string>;
     card: TenderCard;
+    discrepancy_notes: string;
+    reviewed_at: Date | null;
+    created_at: Date;
   }>(
-    "SELECT id, batch_id, file_id, row_index, source, card FROM imported_tenders WHERE batch_id = $1 ORDER BY file_id, row_index",
+    `SELECT id, batch_id, file_id, row_index, source, card, discrepancy_notes, reviewed_at, created_at
+     FROM imported_tenders
+     WHERE batch_id = $1
+     ORDER BY file_id, row_index`,
     [batch.id]
   );
 
@@ -166,9 +184,43 @@ export async function getActiveCsvBatch(): Promise<{
       fileId: row.file_id,
       rowIndex: row.row_index,
       source: row.source,
-      card: row.card
+      card: { ...row.card, discrepancyNotes: row.discrepancy_notes ?? row.card.discrepancyNotes ?? "" },
+      discrepancyNotes: row.discrepancy_notes,
+      reviewedAt: row.reviewed_at?.toISOString() ?? null,
+      createdAt: row.created_at.toISOString()
     }))
   };
+}
+
+export async function listImportedTenders(): Promise<ActiveTenderRow[]> {
+  const result = await requirePool().query<{
+    id: number;
+    batch_id: number;
+    file_id: number;
+    row_index: number;
+    source: Record<string, string>;
+    card: TenderCard;
+    discrepancy_notes: string;
+    reviewed_at: Date | null;
+    created_at: Date;
+  }>(`
+    SELECT id, batch_id, file_id, row_index, source, card, discrepancy_notes, reviewed_at, created_at
+    FROM imported_tenders
+    ORDER BY created_at DESC, id DESC
+    LIMIT 5000
+  `);
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    batchId: row.batch_id,
+    fileId: row.file_id,
+    rowIndex: row.row_index,
+    source: row.source,
+    card: { ...row.card, discrepancyNotes: row.discrepancy_notes ?? row.card.discrepancyNotes ?? "" },
+    discrepancyNotes: row.discrepancy_notes,
+    reviewedAt: row.reviewed_at?.toISOString() ?? null,
+    createdAt: row.created_at.toISOString()
+  }));
 }
 
 export async function saveTenderReview(input: {
@@ -176,6 +228,17 @@ export async function saveTenderReview(input: {
   card: TenderCard;
   discrepancyNotes: string;
 }): Promise<SavedTenderRow> {
+  if (input.importedTenderId) {
+    await requirePool().query(
+      `UPDATE imported_tenders
+       SET card = $1,
+           discrepancy_notes = $2,
+           reviewed_at = now()
+       WHERE id = $3`,
+      [input.card, input.discrepancyNotes, input.importedTenderId]
+    );
+  }
+
   const result = await requirePool().query<{
     id: number;
     imported_tender_id: number | null;

@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   getActiveCsvBatch,
   getAutofillStatus,
+  getImportedTenders,
   getMonthlyStats,
   getSavedTenders,
   saveTenderCard,
@@ -29,7 +30,7 @@ function displayValue(value: TenderCard[keyof TenderCard] | undefined): string {
 }
 
 export default function App() {
-  const [page, setPage] = useState<"card" | "tenders" | "saved">("card");
+  const [page, setPage] = useState<"card" | "tenders" | "database" | "saved">("card");
   const [card, setCard] = useState<TenderCard>(initialCard);
   const [selectedImportedTenderId, setSelectedImportedTenderId] = useState<number | null>(null);
   const [csvRows, setCsvRows] = useState<ActiveCsvTender[]>([]);
@@ -37,6 +38,9 @@ export default function App() {
   const [csvFileName, setCsvFileName] = useState("");
   const [csvSearch, setCsvSearch] = useState("");
   const [csvError, setCsvError] = useState("");
+  const [databaseRows, setDatabaseRows] = useState<ActiveCsvTender[]>([]);
+  const [databaseSearch, setDatabaseSearch] = useState("");
+  const [databaseError, setDatabaseError] = useState("");
   const [savedTenders, setSavedTenders] = useState<SavedTender[]>([]);
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStats[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
@@ -89,6 +93,11 @@ export default function App() {
     void loadSavedTenders();
   }, [page]);
 
+  useEffect(() => {
+    if (page !== "database") return;
+    void loadDatabaseTenders();
+  }, [page]);
+
   const previewFields = useMemo(
     () => fieldsConfig.filter(({ key }) => result?.meta[key] || hasValue(result?.fields[key])),
     [result]
@@ -104,6 +113,21 @@ export default function App() {
   }, [csvRows, csvSearch]);
 
   const visibleCsvHeaders = useMemo(() => csvHeaders.slice(0, 8), [csvHeaders]);
+
+  const filteredDatabaseRows = useMemo(() => {
+    const query = databaseSearch.trim().toLowerCase();
+    if (!query) return databaseRows;
+    return databaseRows.filter((row) =>
+      Object.values(row.source).some((value) => value.toLowerCase().includes(query)) ||
+      Object.values(row.card).some((value) => displayValue(value).toLowerCase().includes(query)) ||
+      String(row.id).includes(query)
+    );
+  }, [databaseRows, databaseSearch]);
+
+  const visibleDatabaseHeaders = useMemo(
+    () => databaseRows[0] ? Object.keys(databaseRows[0].source).slice(0, 8) : [],
+    [databaseRows]
+  );
 
   const updateField = (key: keyof TenderCard, value: string) => {
     const field = fieldsConfig.find((item) => item.key === key);
@@ -168,6 +192,16 @@ export default function App() {
       setMonthlyStats(statsResponse.months);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Не удалось загрузить сохранённые тендеры");
+    }
+  };
+
+  const loadDatabaseTenders = async () => {
+    setDatabaseError("");
+    try {
+      const response = await getImportedTenders();
+      setDatabaseRows(response.tenders);
+    } catch (requestError) {
+      setDatabaseError(requestError instanceof Error ? requestError.message : "Не удалось загрузить тендеры из базы");
     }
   };
 
@@ -259,6 +293,7 @@ export default function App() {
           </div>
           <div className="header-actions">
             <button className="button button-secondary" onClick={() => setPage("card")}>К карточке</button>
+            <button className="button button-secondary" onClick={() => setPage("database")}>Тендеры в базе</button>
             <button className="button button-secondary" onClick={() => setPage("saved")}>Сохранённые</button>
             <label className="button button-primary upload-button">
               Загрузить тендеры
@@ -326,6 +361,78 @@ export default function App() {
     );
   }
 
+  if (page === "database") {
+    return (
+      <main className="page">
+        <header className="page-header">
+          <div>
+            <p className="eyebrow">Закупки / База</p>
+            <h1>Все тендеры в базе</h1>
+            <p className="subtitle">Здесь хранятся все тендеры из загруженных CSV. Найдите тендер и откройте карточку для проверки.</p>
+          </div>
+          <div className="header-actions">
+            <button className="button button-secondary" onClick={() => setPage("tenders")}>Текущие CSV</button>
+            <button className="button button-secondary" onClick={() => setPage("saved")}>Сохранённые</button>
+            <button className="button button-primary" onClick={() => setPage("card")}>К карточке</button>
+          </div>
+        </header>
+
+        {databaseError && <div className="alert alert-error">{databaseError}</div>}
+
+        <section className="card">
+          <div className="card-heading tenders-toolbar">
+            <div>
+              <h2>База тендеров</h2>
+              <span>{filteredDatabaseRows.length} из {databaseRows.length}</span>
+            </div>
+            <label className="field tenders-search">
+              <span className="field-label">Поиск по базе</span>
+              <input
+                type="search"
+                placeholder="seldonId, ИНН, ссылка, контрагент..."
+                value={databaseSearch}
+                onChange={(event) => setDatabaseSearch(event.target.value)}
+                disabled={databaseRows.length === 0}
+              />
+            </label>
+          </div>
+
+          {databaseRows.length === 0 ? (
+            <div className="empty-state">
+              <h3>В базе пока нет тендеров</h3>
+              <p>После загрузки CSV каждый тендер будет сохраняться здесь и останется доступен после смены активных файлов.</p>
+            </div>
+          ) : (
+            <div className="table-wrap">
+              <table className="tenders-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Проверен</th>
+                    {visibleDatabaseHeaders.map((header) => <th key={header}>{header}</th>)}
+                    <th>Примечания</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredDatabaseRows.map((row) => (
+                    <tr key={row.id} onClick={() => openTenderFromCsv(row)}>
+                      <td>{row.id}</td>
+                      <td>{row.reviewedAt ? "Да" : "Нет"}</td>
+                      {visibleDatabaseHeaders.map((header) => (
+                        <td key={header}>{row.source[header] || "—"}</td>
+                      ))}
+                      <td>{row.discrepancyNotes || row.card.discrepancyNotes || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </main>
+    );
+  }
+
   if (page === "saved") {
     return (
       <main className="page">
@@ -337,6 +444,7 @@ export default function App() {
           </div>
           <div className="header-actions">
             <button className="button button-secondary" onClick={() => setPage("tenders")}>Список тендеров</button>
+            <button className="button button-secondary" onClick={() => setPage("database")}>Тендеры в базе</button>
             <button className="button button-primary" onClick={() => setPage("card")}>К карточке</button>
           </div>
         </header>
@@ -418,6 +526,7 @@ export default function App() {
         </div>
         <div className="header-actions">
           <button className="button button-secondary" onClick={() => setPage("tenders")}>Список тендеров</button>
+          <button className="button button-secondary" onClick={() => setPage("database")}>Тендеры в базе</button>
           <button className="button button-secondary" onClick={() => setPage("saved")}>Сохранённые</button>
           <button className="button button-secondary" onClick={() => openModal("url")}>Автозаполнение</button>
           <button className="button button-primary" onClick={() => openModal("documents")}>Автозаполнение + документы</button>

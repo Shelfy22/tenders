@@ -60,6 +60,9 @@ export interface ActiveCsvTender {
   rowIndex: number;
   source: Record<string, string>;
   card: TenderCard;
+  discrepancyNotes: string;
+  reviewedAt: string | null;
+  createdAt: string;
 }
 export interface ActiveCsvBatchResponse {
   batch: { id: number; uploadedAt: string } | null;

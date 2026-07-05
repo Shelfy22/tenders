@@ -1,5 +1,6 @@
 import type {
   ActiveCsvBatchResponse,
+  ActiveCsvTender,
   AutofillJob,
   AutofillStatusResponse,
   MonthlyStats,
@@ -66,6 +67,10 @@ export function saveTenderCard(
 
 export function getActiveCsvBatch(): Promise<ActiveCsvBatchResponse> {
   return request("/api/csv-batches/active");
+}
+
+export function getImportedTenders(): Promise<{ tenders: ActiveCsvTender[] }> {
+  return request("/api/imported-tenders");
 }
 
 export async function uploadCsvBatch(files: File[]): Promise<{

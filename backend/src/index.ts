@@ -10,6 +10,7 @@ import {
   getMonthlyStats,
   initDatabase,
   isDatabaseConfigured,
+  listImportedTenders,
   listSavedTenders,
   replaceActiveCsvBatch,
   saveTenderReview
@@ -77,6 +78,16 @@ app.get("/api/csv-batches/active", async (_req, res, next) => {
     ensureDatabase(res);
     if (res.headersSent) return;
     res.json(await getActiveCsvBatch());
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/imported-tenders", async (_req, res, next) => {
+  try {
+    ensureDatabase(res);
+    if (res.headersSent) return;
+    res.json({ tenders: await listImportedTenders() });
   } catch (error) {
     next(error);
   }
