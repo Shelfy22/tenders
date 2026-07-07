@@ -29,6 +29,26 @@ function displayValue(value: TenderCard[keyof TenderCard] | undefined): string {
   return Array.isArray(value) ? value.join(", ") : String(value ?? "");
 }
 
+function sourceValue(row: ActiveCsvTender, aliases: string[]): string {
+  const normalizedAliases = aliases.map(normalizeSourceKey);
+  const entry = Object.entries(row.source).find(([key]) =>
+    normalizedAliases.includes(normalizeSourceKey(key))
+  );
+  return entry?.[1] ?? "";
+}
+
+function normalizeSourceKey(value: string): string {
+  return value
+    .toLowerCase()
+    .replaceAll("ё", "е")
+    .replace(/[\s._-]+/g, "")
+    .replace(/[^\p{L}\p{N}]/gu, "");
+}
+
+function formatDateTime(value: string | null | undefined): string {
+  return value ? new Date(value).toLocaleString("ru-RU") : "—";
+}
+
 export default function App() {
   const [page, setPage] = useState<"card" | "tenders" | "database" | "saved">("card");
   const [card, setCard] = useState<TenderCard>(initialCard);
@@ -123,11 +143,6 @@ export default function App() {
       String(row.id).includes(query)
     );
   }, [databaseRows, databaseSearch]);
-
-  const visibleDatabaseHeaders = useMemo(
-    () => databaseRows[0] ? Object.keys(databaseRows[0].source).slice(0, 8) : [],
-    [databaseRows]
-  );
 
   const updateField = (key: keyof TenderCard, value: string) => {
     const field = fieldsConfig.find((item) => item.key === key);
@@ -408,8 +423,16 @@ export default function App() {
                 <thead>
                   <tr>
                     <th>ID</th>
+                    <th>seldon id</th>
+                    <th>ИНН</th>
+                    <th>Дата добавления</th>
                     <th>Проверен</th>
-                    {visibleDatabaseHeaders.map((header) => <th key={header}>{header}</th>)}
+                    <th>Ссылка</th>
+                    <th>Контрагент</th>
+                    <th>Статус</th>
+                    <th>ОП</th>
+                    <th>НМЦК</th>
+                    <th>Окончание подачи</th>
                     <th>Примечания</th>
                   </tr>
                 </thead>
@@ -417,10 +440,16 @@ export default function App() {
                   {filteredDatabaseRows.map((row) => (
                     <tr key={row.id} onClick={() => openTenderFromCsv(row)}>
                       <td>{row.id}</td>
+                      <td>{sourceValue(row, ["seldonId", "seldon id", "seldon_id", "Seldon ID"]) || "—"}</td>
+                      <td>{row.card.counterpartyInn || "—"}</td>
+                      <td>{formatDateTime(row.createdAt)}</td>
                       <td>{row.reviewedAt ? "Да" : "Нет"}</td>
-                      {visibleDatabaseHeaders.map((header) => (
-                        <td key={header}>{row.source[header] || "—"}</td>
-                      ))}
+                      <td>{row.card.tenderUrlSource || "—"}</td>
+                      <td>{row.card.counterpartyName || "—"}</td>
+                      <td>{row.card.tenderStatus || "—"}</td>
+                      <td>{row.card.op || "—"}</td>
+                      <td>{row.card.initialPrice || "—"}</td>
+                      <td>{[row.card.submissionDeadlineDate, row.card.submissionDeadlineTime].filter(Boolean).join(" ") || "—"}</td>
                       <td>{row.discrepancyNotes || row.card.discrepancyNotes || "—"}</td>
                     </tr>
                   ))}
