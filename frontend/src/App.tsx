@@ -50,11 +50,10 @@ function formatDateTime(value: string | null | undefined): string {
 }
 
 export default function App() {
-  const [page, setPage] = useState<"card" | "tenders" | "database" | "saved">("card");
+  const [page, setPage] = useState<"card" | "tenders" | "database" | "saved" | "instructions">("card");
   const [card, setCard] = useState<TenderCard>(initialCard);
   const [selectedImportedTenderId, setSelectedImportedTenderId] = useState<number | null>(null);
   const [csvRows, setCsvRows] = useState<ActiveCsvTender[]>([]);
-  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [csvFileName, setCsvFileName] = useState("");
   const [csvSearch, setCsvSearch] = useState("");
   const [csvError, setCsvError] = useState("");
@@ -132,8 +131,6 @@ export default function App() {
     );
   }, [csvRows, csvSearch]);
 
-  const visibleCsvHeaders = useMemo(() => csvHeaders.slice(0, 8), [csvHeaders]);
-
   const filteredDatabaseRows = useMemo(() => {
     const query = databaseSearch.trim().toLowerCase();
     if (!query) return databaseRows;
@@ -189,7 +186,6 @@ export default function App() {
     try {
       const response = await getActiveCsvBatch();
       setCsvRows(response.tenders);
-      setCsvHeaders(response.tenders[0] ? Object.keys(response.tenders[0].source).slice(0, 8) : []);
       setCsvFileName(response.files.map((file) => file.fileName).join(", "));
     } catch (requestError) {
       setCsvError(requestError instanceof Error ? requestError.message : "Не удалось загрузить CSV тендеры");
@@ -297,6 +293,49 @@ export default function App() {
     }
   };
 
+  if (page === "instructions") {
+    return (
+      <main className="page">
+        <header className="page-header">
+          <div>
+            <p className="eyebrow">Помощь</p>
+            <h1>Инструкция для сотрудников</h1>
+            <p className="subtitle">Коротко о том, где искать тендеры, как открывать карточку и когда использовать автозаполнение.</p>
+          </div>
+          <div className="header-actions">
+            <button className="button button-secondary" onClick={() => setPage("tenders")}>Список тендеров</button>
+            <button className="button button-secondary" onClick={() => setPage("database")}>Тендеры в базе</button>
+            <button className="button button-primary" onClick={() => setPage("card")}>К карточке</button>
+          </div>
+        </header>
+
+        <section className="card instruction-card">
+          <div className="instruction-grid">
+            <article>
+              <h2>Список тендеров</h2>
+              <p>Сюда автоматически будут приходить 3 CSV файла от n8n. Все тендеры из этих файлов отображаются в одной таблице. Если в одном из файлов нет какой-то колонки, на её месте будет прочерк.</p>
+              <p>Нажмите на строку тендера, чтобы открыть карточку автозаполнения с уже подставленными полями из CSV.</p>
+            </article>
+            <article>
+              <h2>Тендеры в базе</h2>
+              <p>Здесь хранятся все тендеры, которые когда-либо пришли из CSV. Эта страница нужна, если сотрудник пропустил день и хочет найти тендер позже.</p>
+              <p>В начале таблицы добавлены важные колонки: `seldon id`, `ИНН`, `Дата добавления`, `Проверен`. По ним проще ориентироваться и искать нужную закупку.</p>
+            </article>
+            <article>
+              <h2>Сохранённые</h2>
+              <p>Это журнал проверок. После нажатия `Сохранить` запись попадает сюда, а статистика показывает количество проверенных тендеров и сколько из них были с замечаниями.</p>
+            </article>
+            <article>
+              <h2>Автозаполнение</h2>
+              <p>Используется как альтернативный запуск workflow. Основной вариант: указать `seldonId` и тип закупки. Если `seldonId` нет, используйте `etpId` и тип закупки.</p>
+              <p>После проверки заполните поле `Примечания к расхождениям по колонкам тендера`, если workflow ошибся или заполнил что-то неточно, и нажмите `Сохранить`.</p>
+            </article>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   if (page === "tenders") {
     return (
       <main className="page">
@@ -307,6 +346,7 @@ export default function App() {
             <p className="subtitle">Загрузите CSV файл, найдите нужный тендер и откройте его карточку.</p>
           </div>
           <div className="header-actions">
+            <button className="button button-secondary" onClick={() => setPage("instructions")}>Инструкция</button>
             <button className="button button-secondary" onClick={() => setPage("card")}>К карточке</button>
             <button className="button button-secondary" onClick={() => setPage("database")}>Тендеры в базе</button>
             <button className="button button-secondary" onClick={() => setPage("saved")}>Сохранённые</button>
@@ -356,15 +396,35 @@ export default function App() {
               <table className="tenders-table">
                 <thead>
                   <tr>
-                    {visibleCsvHeaders.map((header) => <th key={header}>{header}</th>)}
+                    <th>ID</th>
+                    <th>seldon id</th>
+                    <th>ИНН</th>
+                    <th>Дата добавления</th>
+                    <th>Проверен</th>
+                    <th>Ссылка</th>
+                    <th>Контрагент</th>
+                    <th>Статус</th>
+                    <th>ОП</th>
+                    <th>НМЦК</th>
+                    <th>Окончание подачи</th>
+                    <th>Примечания</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredCsvRows.map((row) => (
                     <tr key={row.id} onClick={() => openTenderFromCsv(row)}>
-                      {visibleCsvHeaders.map((header) => (
-                        <td key={header}>{row.source[header] || "—"}</td>
-                      ))}
+                      <td>{row.id}</td>
+                      <td>{sourceValue(row, ["seldonId", "seldon id", "seldon_id", "Seldon ID"]) || "—"}</td>
+                      <td>{row.card.counterpartyInn || "—"}</td>
+                      <td>{formatDateTime(row.createdAt)}</td>
+                      <td>{row.reviewedAt ? "Да" : "Нет"}</td>
+                      <td>{row.card.tenderUrlSource || "—"}</td>
+                      <td>{row.card.counterpartyName || "—"}</td>
+                      <td>{row.card.tenderStatus || "—"}</td>
+                      <td>{row.card.op || "—"}</td>
+                      <td>{row.card.initialPrice || "—"}</td>
+                      <td>{[row.card.submissionDeadlineDate, row.card.submissionDeadlineTime].filter(Boolean).join(" ") || "—"}</td>
+                      <td>{row.discrepancyNotes || row.card.discrepancyNotes || "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -386,6 +446,7 @@ export default function App() {
             <p className="subtitle">Здесь хранятся все тендеры из загруженных CSV. Найдите тендер и откройте карточку для проверки.</p>
           </div>
           <div className="header-actions">
+            <button className="button button-secondary" onClick={() => setPage("instructions")}>Инструкция</button>
             <button className="button button-secondary" onClick={() => setPage("tenders")}>Текущие CSV</button>
             <button className="button button-secondary" onClick={() => setPage("saved")}>Сохранённые</button>
             <button className="button button-primary" onClick={() => setPage("card")}>К карточке</button>
@@ -472,6 +533,7 @@ export default function App() {
             <p className="subtitle">Здесь хранится история проверенных карточек и замечаний сотрудников.</p>
           </div>
           <div className="header-actions">
+            <button className="button button-secondary" onClick={() => setPage("instructions")}>Инструкция</button>
             <button className="button button-secondary" onClick={() => setPage("tenders")}>Список тендеров</button>
             <button className="button button-secondary" onClick={() => setPage("database")}>Тендеры в базе</button>
             <button className="button button-primary" onClick={() => setPage("card")}>К карточке</button>
@@ -554,6 +616,7 @@ export default function App() {
           <p className="subtitle">Заполните данные вручную или загрузите их из документации ЭТП.</p>
         </div>
         <div className="header-actions">
+          <button className="button button-secondary" onClick={() => setPage("instructions")}>Инструкция</button>
           <button className="button button-secondary" onClick={() => setPage("tenders")}>Список тендеров</button>
           <button className="button button-secondary" onClick={() => setPage("database")}>Тендеры в базе</button>
           <button className="button button-secondary" onClick={() => setPage("saved")}>Сохранённые</button>
