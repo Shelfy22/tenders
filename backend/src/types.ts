@@ -1,6 +1,10 @@
 export type Confidence = "high" | "medium" | "low";
 
 export interface AutofillFields {
+  seldonId: string;
+  etpId: string;
+  purchaseType: string;
+  tenderUrl: string;
   dateCreated: string;
   submissionDeadlineDate: string;
   submissionDeadlineTime: string;

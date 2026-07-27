@@ -184,7 +184,7 @@ export async function getActiveCsvBatch(): Promise<{
       fileId: row.file_id,
       rowIndex: row.row_index,
       source: row.source,
-      card: { ...row.card, discrepancyNotes: row.discrepancy_notes ?? row.card.discrepancyNotes ?? "" },
+      card: normalizeStoredCard(row.card, row.source, row.discrepancy_notes),
       discrepancyNotes: row.discrepancy_notes,
       reviewedAt: row.reviewed_at?.toISOString() ?? null,
       createdAt: row.created_at.toISOString()
@@ -216,7 +216,7 @@ export async function listImportedTenders(): Promise<ActiveTenderRow[]> {
     fileId: row.file_id,
     rowIndex: row.row_index,
     source: row.source,
-    card: { ...row.card, discrepancyNotes: row.discrepancy_notes ?? row.card.discrepancyNotes ?? "" },
+    card: normalizeStoredCard(row.card, row.source, row.discrepancy_notes),
     discrepancyNotes: row.discrepancy_notes,
     reviewedAt: row.reviewed_at?.toISOString() ?? null,
     createdAt: row.created_at.toISOString()
@@ -300,6 +300,42 @@ function mapSavedTender(row: {
     discrepancyNotes: row.discrepancy_notes,
     savedAt: row.saved_at.toISOString()
   };
+}
+
+function normalizeStoredCard(
+  card: TenderCard,
+  source: Record<string, string> | undefined,
+  discrepancyNotes: string
+): TenderCard {
+  const tenderUrl = card.tenderUrl || card.tenderUrlSource || sourceValue(source, [
+    "tenderUrl",
+    "tender_url",
+    "url",
+    "link",
+    "Ссылка",
+    "Ссылка на тендер"
+  ]);
+
+  return {
+    ...card,
+    seldonId: card.seldonId || sourceValue(source, ["seldonId", "seldon id", "seldon_id", "Seldon ID"]),
+    etpId: card.etpId || sourceValue(source, ["etpId", "etp id", "etp_id", "ETP ID"]),
+    purchaseType: card.purchaseType || sourceValue(source, ["purchaseType", "purchase_type", "Тип закупки"]) || card.federalLaw,
+    tenderUrl,
+    tenderUrlSource: card.tenderUrlSource || tenderUrl,
+    discrepancyNotes: discrepancyNotes ?? card.discrepancyNotes ?? ""
+  };
+}
+
+function sourceValue(source: Record<string, string> | undefined, aliases: string[]): string {
+  if (!source) return "";
+  const normalizedAliases = aliases.map(normalizeSourceKey);
+  const entry = Object.entries(source).find(([key]) => normalizedAliases.includes(normalizeSourceKey(key)));
+  return entry?.[1] ?? "";
+}
+
+function normalizeSourceKey(value: string): string {
+  return value.toLowerCase().replace(/[\s._-]+/g, "").replace(/[^\p{L}\p{N}]/gu, "");
 }
 
 function requirePool(): pg.Pool {

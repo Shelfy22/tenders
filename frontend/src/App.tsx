@@ -414,11 +414,11 @@ export default function App() {
                   {filteredCsvRows.map((row) => (
                     <tr key={row.id} onClick={() => openTenderFromCsv(row)}>
                       <td>{row.id}</td>
-                      <td>{sourceValue(row, ["seldonId", "seldon id", "seldon_id", "Seldon ID"]) || "—"}</td>
+                      <td>{row.card.seldonId || sourceValue(row, ["seldonId", "seldon id", "seldon_id", "Seldon ID"]) || "—"}</td>
                       <td>{row.card.counterpartyInn || "—"}</td>
                       <td>{formatDateTime(row.createdAt)}</td>
                       <td>{row.reviewedAt ? "Да" : "Нет"}</td>
-                      <td>{row.card.tenderUrlSource || "—"}</td>
+                      <td>{row.card.tenderUrl || row.card.tenderUrlSource || "—"}</td>
                       <td>{row.card.counterpartyName || "—"}</td>
                       <td>{row.card.tenderStatus || "—"}</td>
                       <td>{row.card.op || "—"}</td>
@@ -501,11 +501,11 @@ export default function App() {
                   {filteredDatabaseRows.map((row) => (
                     <tr key={row.id} onClick={() => openTenderFromCsv(row)}>
                       <td>{row.id}</td>
-                      <td>{sourceValue(row, ["seldonId", "seldon id", "seldon_id", "Seldon ID"]) || "—"}</td>
+                      <td>{row.card.seldonId || sourceValue(row, ["seldonId", "seldon id", "seldon_id", "Seldon ID"]) || "—"}</td>
                       <td>{row.card.counterpartyInn || "—"}</td>
                       <td>{formatDateTime(row.createdAt)}</td>
                       <td>{row.reviewedAt ? "Да" : "Нет"}</td>
-                      <td>{row.card.tenderUrlSource || "—"}</td>
+                      <td>{row.card.tenderUrl || row.card.tenderUrlSource || "—"}</td>
                       <td>{row.card.counterpartyName || "—"}</td>
                       <td>{row.card.tenderStatus || "—"}</td>
                       <td>{row.card.op || "—"}</td>

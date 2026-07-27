@@ -10,6 +10,10 @@ export interface CsvTenderRow {
 type FieldKey = keyof AutofillFields;
 
 const extraAliases: Partial<Record<FieldKey, string[]>> = {
+  seldonId: ["seldon", "seldon_id", "Seldon ID", "seldon id"],
+  etpId: ["etp", "etp_id", "ETP ID", "etp id"],
+  purchaseType: ["purchase_type", "purchase kind", "Тип закупки"],
+  tenderUrl: ["tender_url", "tenderUrl", "url", "link", "Ссылка", "Ссылка на тендер"],
   dateCreated: ["date_created", "created_at", "Дата заведения"],
   submissionDeadlineDate: ["submission_deadline_date", "Окончание подачи", "Окончание подачи дата", "Дата окончания подачи"],
   submissionDeadlineTime: ["submission_deadline_time", "Окончание подачи время", "Время окончания подачи"],

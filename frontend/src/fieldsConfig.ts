@@ -35,6 +35,10 @@ export const productDirections = [
 ];
 
 export const fieldsConfig: FieldConfig[] = [
+  { key: "seldonId", label: "seldonId", section: "Основные данные" },
+  { key: "etpId", label: "etpId", section: "Основные данные" },
+  { key: "purchaseType", label: "Тип закупки", section: "Основные данные", type: "select", options: [empty, { value: "223-ФЗ", label: "223-ФЗ" }, { value: "44/94-ФЗ", label: "44/94-ФЗ" }, { value: "Коммерческие закупки", label: "Коммерческие закупки" }, { value: "Международные закупки", label: "Международные закупки" }] },
+  { key: "tenderUrl", label: "Ссылка на тендер", section: "Основные данные", type: "url" },
   { key: "dateCreated", label: "Дата заведения", section: "Основные данные", type: "date" },
   { key: "submissionDeadlineDate", label: "Окончание подачи, дата", section: "Основные данные", type: "date", important: true },
   { key: "submissionDeadlineTime", label: "Окончание подачи, время", section: "Основные данные", type: "time" },
@@ -111,6 +115,10 @@ export const fieldsConfig: FieldConfig[] = [
 ];
 
 export const initialCard: TenderCard = {
+  seldonId: "",
+  etpId: "",
+  purchaseType: "",
+  tenderUrl: "",
   dateCreated: "",
   submissionDeadlineDate: "",
   submissionDeadlineTime: "",

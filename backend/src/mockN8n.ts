@@ -9,6 +9,10 @@ export interface AutofillDocument {
 
 export function createEmptyAutofillFields(): AutofillResult["fields"] {
   return {
+    seldonId: "",
+    etpId: "",
+    purchaseType: "",
+    tenderUrl: "",
     dateCreated: "",
     submissionDeadlineDate: "",
     submissionDeadlineTime: "",

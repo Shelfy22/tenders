@@ -8,6 +8,10 @@ export interface ParsedCsvRow {
 type FieldKey = keyof TenderCard;
 
 const initialCard: TenderCard = {
+  seldonId: "",
+  etpId: "",
+  purchaseType: "",
+  tenderUrl: "",
   dateCreated: "",
   submissionDeadlineDate: "",
   submissionDeadlineTime: "",
@@ -53,6 +57,15 @@ const initialCard: TenderCard = {
 };
 
 const headerMap: Record<string, FieldKey> = {
+  seldonid: "seldonId",
+  seldon: "seldonId",
+  etpid: "etpId",
+  etp: "etpId",
+  purchasetype: "purchaseType",
+  purchasekind: "purchaseType",
+  типзакупки: "purchaseType",
+  tenderurl: "tenderUrl",
+  tenderlink: "tenderUrl",
   datecreated: "dateCreated",
   датазаведения: "dateCreated",
   submissiondeadlinedate: "submissionDeadlineDate",
@@ -61,9 +74,9 @@ const headerMap: Record<string, FieldKey> = {
   submissiondeadlinetime: "submissionDeadlineTime",
   окончаниеподачивремя: "submissionDeadlineTime",
   tenderurlsource: "tenderUrlSource",
-  tenderurl: "tenderUrlSource",
-  ссылка: "tenderUrlSource",
-  ссылканатендер: "tenderUrlSource",
+  url: "tenderUrl",
+  ссылка: "tenderUrl",
+  ссылканатендер: "tenderUrl",
   federallaw: "federalLaw",
   федеральныйзакон: "federalLaw",
   statedefenseorder: "stateDefenseOrder",
@@ -160,6 +173,12 @@ export function parseTenderCsv(text: string): { rows: ParsedCsvRow[]; headers: s
         if (!key) return;
         Object.assign(card, { [key]: normalizeValue(key, value) });
       });
+      if (card.tenderUrl && !card.tenderUrlSource) {
+        card.tenderUrlSource = card.tenderUrl;
+      }
+      if (card.tenderUrlSource && !card.tenderUrl) {
+        card.tenderUrl = card.tenderUrlSource;
+      }
       return { source, card };
     });
   return { rows, headers };

@@ -1,0 +1,160 @@
+﻿{
+  "name": "Tender Autofill Analytics API",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "tender-analytics",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "0d7cb7f0-c97a-41f5-8fb6-d29d4e316b1f",
+      "name": "Webhook Analytics",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -520,
+        0
+      ],
+      "webhookId": "tender-analytics"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "b6c68574-6a5c-4c6f-9412-79e1ea39a356",
+              "leftValue": "={{ $json.query.token }}",
+              "rightValue": "CHANGE_ME_ANALYTICS_TOKEN",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "52f63e84-34a3-4520-b1fa-ac833a1d8e6f",
+      "name": "Check Token",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -300,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  it.id,\n  it.created_at,\n  it.reviewed_at,\n  COALESCE(it.card->>'seldonId', it.source->>'seldonId', it.source->>'seldon id', it.source->>'seldon_id', it.source->>'Seldon ID') AS seldon_id,\n  COALESCE(it.card->>'etpId', it.source->>'etpId', it.source->>'etp id', it.source->>'etp_id', it.source->>'ETP ID') AS etp_id,\n  COALESCE(it.card->>'purchaseType', it.source->>'purchaseType', it.source->>'purchase_type', it.source->>'Тип закупки', it.card->>'federalLaw') AS purchase_type,\n  COALESCE(it.card->>'counterpartyInn', it.card->>'inn', it.source->>'ИНН') AS inn,\n  COALESCE(it.card->>'counterpartyName', it.source->>'Контрагент') AS counterparty,\n  COALESCE(it.card->>'tenderStatus', it.card->>'status', it.source->>'Статус тендера') AS tender_status,\n  COALESCE(it.card->>'tenderStatusReason', it.source->>'Причина статуса') AS tender_status_reason,\n  COALESCE(it.card->>'op', it.source->>'ОП') AS op,\n  COALESCE(it.card->>'legalEntity', it.card->>'etmLegalEntity', it.source->>'Юридическое лицо ЭТМ') AS etm_legal_entity,\n  COALESCE(it.card->>'initialPrice', it.source->>'Начальная цена') AS initial_price,\n  COALESCE(it.card->>'finalPrice', it.source->>'Конечная цена') AS final_price,\n  btrim(concat_ws(' ', NULLIF(it.card->>'submissionDeadlineDate', ''), NULLIF(it.card->>'submissionDeadlineTime', ''))) AS submission_deadline,\n  COALESCE(it.card->>'tenderUrl', it.card->>'tenderUrlSource', it.source->>'Ссылка на тендер', it.source->>'tender_url') AS tender_url,\n  it.discrepancy_notes,\n  CASE WHEN it.reviewed_at IS NULL THEN false ELSE true END AS reviewed\nFROM imported_tenders it\nORDER BY it.created_at DESC, it.id DESC\nLIMIT 5000;",
+        "options": {}
+      },
+      "id": "42185540-470a-4d3c-bd33-a06483d2c3fc",
+      "name": "Read Tender Analytics",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        -40,
+        -120
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_N8N_POSTGRES_CREDENTIAL_ID",
+          "name": "Tender Autofill Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, count: $items().length, data: $items().map(item => item.json) } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "de536cfd-155a-466e-a926-3e2721230099",
+      "name": "Respond Analytics JSON",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: false, error: 'Forbidden: invalid token' } }}",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "id": "b7b1f48b-d8a1-42c9-b327-323204f1e994",
+      "name": "Respond Forbidden",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -40,
+        120
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Analytics": {
+      "main": [
+        [
+          {
+            "node": "Check Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Token": {
+      "main": [
+        [
+          {
+            "node": "Read Tender Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Forbidden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Tender Analytics": {
+      "main": [
+        [
+          {
+            "node": "Respond Analytics JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "7d860af2-07fc-4a8d-8394-82133d595d0d",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

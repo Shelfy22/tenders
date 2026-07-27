@@ -76,7 +76,15 @@ export function completeJobFromCallback(
   if (!job) return undefined;
 
   job.result = {
-    fields: { ...createEmptyAutofillFields(), ...result.fields },
+    fields: {
+      ...createEmptyAutofillFields(),
+      ...result.fields,
+      seldonId: result.fields?.seldonId ?? job.seldonId ?? "",
+      etpId: result.fields?.etpId ?? job.etpId ?? "",
+      purchaseType: result.fields?.purchaseType ?? job.purchaseType ?? "",
+      tenderUrl: result.fields?.tenderUrl ?? tenderUrl ?? job.tenderUrl ?? "",
+      tenderUrlSource: result.fields?.tenderUrlSource ?? result.fields?.tenderUrl ?? tenderUrl ?? job.tenderUrl ?? ""
+    },
     meta: result.meta ?? {},
     warnings: result.warnings ?? []
   };
