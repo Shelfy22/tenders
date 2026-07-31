@@ -323,8 +323,17 @@ function normalizeStoredCard(
     purchaseType: card.purchaseType || sourceValue(source, ["purchaseType", "purchase_type", "Тип закупки"]) || card.federalLaw,
     tenderUrl,
     tenderUrlSource: card.tenderUrlSource || tenderUrl,
+    productDirections: normalizeProductDirections(card.productDirections),
     discrepancyNotes: discrepancyNotes ?? card.discrepancyNotes ?? ""
   };
+}
+
+function normalizeProductDirections(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter((item) => item && item.toLowerCase() !== "null");
 }
 
 function sourceValue(source: Record<string, string> | undefined, aliases: string[]): string {

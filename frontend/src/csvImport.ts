@@ -178,7 +178,7 @@ function normalizeFieldValue(key: FieldKey, value: string): TenderCard[FieldKey]
     const selected = value
       .split(/[;|,\n]/)
       .map((item) => item.trim())
-      .filter(Boolean)
+      .filter((item) => item && item.toLowerCase() !== "null")
       .map((item) => {
         const option = field.options?.find(
           (candidate) =>

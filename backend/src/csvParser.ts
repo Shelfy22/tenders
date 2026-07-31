@@ -245,7 +245,10 @@ function normalizeValue(key: FieldKey, value: string): TenderCard[FieldKey] {
     return (Number.isFinite(normalizedNumber) ? normalizedNumber : "") as TenderCard[FieldKey];
   }
   if (key === "productDirections") {
-    return value.split(/[;|,\n]/).map((item) => item.trim()).filter(Boolean) as TenderCard[FieldKey];
+    return value
+      .split(/[;|,\n]/)
+      .map((item) => item.trim())
+      .filter((item) => item && item.toLowerCase() !== "null") as TenderCard[FieldKey];
   }
   return value as TenderCard[FieldKey];
 }

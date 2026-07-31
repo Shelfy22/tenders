@@ -75,16 +75,19 @@ export function completeJobFromCallback(
           );
   if (!job) return undefined;
 
+  const fields = {
+    ...createEmptyAutofillFields(),
+    ...result.fields,
+    seldonId: result.fields?.seldonId ?? job.seldonId ?? "",
+    etpId: result.fields?.etpId ?? job.etpId ?? "",
+    purchaseType: result.fields?.purchaseType ?? job.purchaseType ?? "",
+    tenderUrl: result.fields?.tenderUrl ?? tenderUrl ?? job.tenderUrl ?? "",
+    tenderUrlSource: result.fields?.tenderUrlSource ?? result.fields?.tenderUrl ?? tenderUrl ?? job.tenderUrl ?? "",
+    productDirections: normalizeProductDirections(result.fields?.productDirections)
+  };
+
   job.result = {
-    fields: {
-      ...createEmptyAutofillFields(),
-      ...result.fields,
-      seldonId: result.fields?.seldonId ?? job.seldonId ?? "",
-      etpId: result.fields?.etpId ?? job.etpId ?? "",
-      purchaseType: result.fields?.purchaseType ?? job.purchaseType ?? "",
-      tenderUrl: result.fields?.tenderUrl ?? tenderUrl ?? job.tenderUrl ?? "",
-      tenderUrlSource: result.fields?.tenderUrlSource ?? result.fields?.tenderUrl ?? tenderUrl ?? job.tenderUrl ?? ""
-    },
+    fields,
     meta: result.meta ?? {},
     warnings: result.warnings ?? []
   };
@@ -92,6 +95,14 @@ export function completeJobFromCallback(
   job.status = "done";
   console.log("[autofill/result] completed job:", job.id);
   return job;
+}
+
+function normalizeProductDirections(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter((item) => item && item.toLowerCase() !== "null");
 }
 
 async function processJob(

@@ -22,7 +22,7 @@ const purchaseTypeOptions = [
 ];
 
 function hasValue(value: TenderCard[keyof TenderCard] | undefined): boolean {
-  return Array.isArray(value) ? value.length > 0 : value !== "" && value !== undefined;
+  return Array.isArray(value) ? value.length > 0 : value !== "" && value !== undefined && value !== null;
 }
 
 function displayValue(value: TenderCard[keyof TenderCard] | undefined): string {
@@ -35,6 +35,10 @@ function sourceValue(row: ActiveCsvTender, aliases: string[]): string {
     normalizedAliases.includes(normalizeSourceKey(key))
   );
   return entry?.[1] ?? "";
+}
+
+function productDirectionsValue(card: TenderCard): string[] {
+  return Array.isArray(card.productDirections) ? card.productDirections : [];
 }
 
 function normalizeSourceKey(value: string): string {
@@ -155,9 +159,9 @@ export default function App() {
   const toggleDirection = (direction: string) => {
     setCard((current) => ({
       ...current,
-      productDirections: current.productDirections.includes(direction)
-        ? current.productDirections.filter((item) => item !== direction)
-        : [...current.productDirections, direction]
+      productDirections: productDirectionsValue(current).includes(direction)
+        ? productDirectionsValue(current).filter((item) => item !== direction)
+        : [...productDirectionsValue(current), direction]
     }));
     setChangedFields((current) => {
       const next = new Set(current);
@@ -649,7 +653,7 @@ export default function App() {
                       <label className="direction-option" key={option.value}>
                         <input
                           type="checkbox"
-                          checked={card.productDirections.includes(option.value)}
+                          checked={productDirectionsValue(card).includes(option.value)}
                           onChange={() => toggleDirection(option.value)}
                         />
                         <span>{option.label}</span>
