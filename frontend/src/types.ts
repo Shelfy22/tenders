@@ -92,7 +92,6 @@ export interface TestingRecord {
   tenderStatus: string;
   tenderStatusReason: string;
   employeeNote: string;
-  winner: "employee" | "ai";
   modelVersion: number;
   createdAt: string;
 }

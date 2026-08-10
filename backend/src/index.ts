@@ -357,12 +357,11 @@ app.post("/api/testing/records", async (req, res, next) => {
     const tenderStatus = String(req.body?.tenderStatus ?? "").trim();
     const tenderStatusReason = String(req.body?.tenderStatusReason ?? "").trim();
     const employeeNote = String(req.body?.employeeNote ?? "").trim();
-    const winner = req.body?.winner === "ai" ? "ai" : req.body?.winner === "employee" ? "employee" : "";
-    if (!seldonId || !winner) {
-      res.status(400).json({ success: false, error: "seldonId и кто прав обязательны" });
+    if (!seldonId) {
+      res.status(400).json({ success: false, error: "seldonId обязателен" });
       return;
     }
-    const record = await createTestingRecord({ seldonId, kkt, tenderStatus, tenderStatusReason, employeeNote, winner });
+    const record = await createTestingRecord({ seldonId, kkt, tenderStatus, tenderStatusReason, employeeNote });
     res.status(201).json({ success: true, record });
   } catch (error) {
     next(error);

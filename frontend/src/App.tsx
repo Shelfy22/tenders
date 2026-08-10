@@ -90,7 +90,6 @@ export default function App() {
   const [testingTenderStatus, setTestingTenderStatus] = useState("");
   const [testingTenderStatusReason, setTestingTenderStatusReason] = useState("");
   const [testingEmployeeNote, setTestingEmployeeNote] = useState("");
-  const [testingWinner, setTestingWinner] = useState<"employee" | "ai">("employee");
   const [modelVersion, setModelVersionState] = useState(1);
   const [modelVersionDraft, setModelVersionDraft] = useState("1");
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -296,8 +295,7 @@ export default function App() {
         kkt: testingKkt.trim(),
         tenderStatus: testingTenderStatus,
         tenderStatusReason: testingTenderStatusReason,
-        employeeNote: testingEmployeeNote.trim(),
-        winner: testingWinner
+        employeeNote: testingEmployeeNote.trim()
       });
       setTestingRecords((current) => [response.record, ...current]);
       setTestingSeldonId("");
@@ -305,7 +303,6 @@ export default function App() {
       setTestingTenderStatus("");
       setTestingTenderStatusReason("");
       setTestingEmployeeNote("");
-      setTestingWinner("employee");
       setTestingNotice("Запись тестирования сохранена");
     } catch (requestError) {
       setTestingError(requestError instanceof Error ? requestError.message : "Не удалось сохранить запись тестирования");
@@ -433,7 +430,7 @@ export default function App() {
             </article>
             <article>
               <h2>Тестирование</h2>
-              <p>Сюда нужно вносить тендеры, которые сотрудник заполнил вручную. Укажите `SeldonId`, `ККТ`, примечание сотрудника и выберите, кто прав: сотрудник или ИИ.</p>
+              <p>Сюда нужно вносить тендеры, которые сотрудник заполнил вручную. Укажите `SeldonId`, `ККТ`, статус тендера, причину статуса и примечание сотрудника.</p>
               <p>Версия модели подставляется автоматически. Её можно увеличить на странице тестирования перед новой проверкой качества.</p>
             </article>
             <article>
@@ -771,13 +768,6 @@ export default function App() {
               </select>
             </label>
             <label className="field">
-              <span className="field-label">Кто прав</span>
-              <select value={testingWinner} onChange={(event) => setTestingWinner(event.target.value === "ai" ? "ai" : "employee")}>
-                <option value="employee">Сотрудник</option>
-                <option value="ai">ИИ</option>
-              </select>
-            </label>
-            <label className="field">
               <span className="field-label">Версия модели</span>
               <input value={modelVersion} readOnly />
             </label>
@@ -818,13 +808,12 @@ export default function App() {
               <table className="tenders-table">
                 <thead>
                   <tr>
-                    <th>Дата</th>
+                    <th>Дата заполнения</th>
                     <th>SeldonId</th>
                     <th>ККТ</th>
                     <th>Статус тендера</th>
                     <th>Причина статуса</th>
                     <th>Примечание сотрудника</th>
-                    <th>Кто прав</th>
                     <th>Версия модели</th>
                   </tr>
                 </thead>
@@ -837,7 +826,6 @@ export default function App() {
                       <td>{fieldDisplayValue("tenderStatus", item.tenderStatus) || "—"}</td>
                       <td>{item.tenderStatusReason || "—"}</td>
                       <td>{item.employeeNote || "—"}</td>
-                      <td>{item.winner === "employee" ? "Сотрудник" : "ИИ"}</td>
                       <td>{item.modelVersion}</td>
                     </tr>
                   ))}

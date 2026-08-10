@@ -127,7 +127,6 @@ export function createTestingRecord(input: {
   tenderStatus: string;
   tenderStatusReason: string;
   employeeNote: string;
-  winner: "employee" | "ai";
 }): Promise<{ success: boolean; record: TestingRecord }> {
   return request("/api/testing/records", {
     method: "POST",

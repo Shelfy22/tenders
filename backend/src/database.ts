@@ -40,7 +40,6 @@ export interface TestingRecord {
   tenderStatus: string;
   tenderStatusReason: string;
   employeeNote: string;
-  winner: "employee" | "ai";
   modelVersion: number;
   createdAt: string;
 }
@@ -394,11 +393,10 @@ export async function listTestingRecords(): Promise<TestingRecord[]> {
     tender_status: string;
     tender_status_reason: string;
     employee_note: string;
-    winner: "employee" | "ai";
     model_version: number;
     created_at: Date;
   }>(`
-    SELECT id, seldon_id, kkt, tender_status, tender_status_reason, employee_note, winner, model_version, created_at
+    SELECT id, seldon_id, kkt, tender_status, tender_status_reason, employee_note, model_version, created_at
     FROM testing_records
     ORDER BY created_at DESC, id DESC
     LIMIT 5000
@@ -413,7 +411,6 @@ export async function createTestingRecord(input: {
   tenderStatus: string;
   tenderStatusReason: string;
   employeeNote: string;
-  winner: "employee" | "ai";
 }): Promise<TestingRecord> {
   const modelVersion = await getModelVersion();
   const result = await requirePool().query<{
@@ -423,14 +420,13 @@ export async function createTestingRecord(input: {
     tender_status: string;
     tender_status_reason: string;
     employee_note: string;
-    winner: "employee" | "ai";
     model_version: number;
     created_at: Date;
   }>(
     `INSERT INTO testing_records(seldon_id, kkt, tender_status, tender_status_reason, employee_note, winner, model_version)
      VALUES($1, $2, $3, $4, $5, $6, $7)
-     RETURNING id, seldon_id, kkt, tender_status, tender_status_reason, employee_note, winner, model_version, created_at`,
-    [input.seldonId, input.kkt, input.tenderStatus, input.tenderStatusReason, input.employeeNote, input.winner, modelVersion]
+     RETURNING id, seldon_id, kkt, tender_status, tender_status_reason, employee_note, model_version, created_at`,
+    [input.seldonId, input.kkt, input.tenderStatus, input.tenderStatusReason, input.employeeNote, "employee", modelVersion]
   );
 
   return mapTestingRecord(result.rows[0]);
@@ -459,7 +455,6 @@ function mapTestingRecord(row: {
   tender_status: string;
   tender_status_reason: string;
   employee_note: string;
-  winner: "employee" | "ai";
   model_version: number;
   created_at: Date;
 }): TestingRecord {
@@ -470,7 +465,6 @@ function mapTestingRecord(row: {
     tenderStatus: row.tender_status,
     tenderStatusReason: row.tender_status_reason,
     employeeNote: row.employee_note,
-    winner: row.winner,
     modelVersion: row.model_version,
     createdAt: row.created_at.toISOString()
   };
