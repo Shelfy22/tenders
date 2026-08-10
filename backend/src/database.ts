@@ -479,6 +479,16 @@ function normalizeStoredCard(
     seldonId: card.seldonId || sourceValue(source, ["ID", "id", "seldonId", "seldon id", "seldon_id", "Seldon ID"]),
     etpId: card.etpId || sourceValue(source, ["etpId", "etp id", "etp_id", "ETP ID"]),
     purchaseType: card.purchaseType || sourceValue(source, ["purchaseType", "purchase_type", "Тип закупки"]) || card.federalLaw,
+    tenderStatus: normalizeTenderStatus(card.tenderStatus || sourceValue(source, ["tenderStatus", "tender_status", "status", "Статус", "Статус тендера"])),
+    tenderStatusReason: card.tenderStatusReason || sourceValue(source, [
+      "tenderStatusReason",
+      "tender_status_reason",
+      "status_reason",
+      "Причина",
+      "Причина статуса",
+      "Причина статуса тендера",
+      "Причина отказа"
+    ]),
     tenderUrl,
     tenderUrlSource: card.tenderUrlSource || tenderUrl,
     productDirections: normalizeProductDirections(card.productDirections),
@@ -492,6 +502,16 @@ function normalizeProductDirections(value: unknown): string[] {
     .filter((item): item is string => typeof item === "string")
     .map((item) => item.trim())
     .filter((item) => item && item.toLowerCase() !== "null");
+}
+
+function normalizeTenderStatus(value: string): string {
+  const normalized = normalizeSourceKey(value);
+  if (["loadedseldon", "загруженseldon", "загруженселдон"].includes(normalized)) return "loaded_seldon";
+  if (["approvedkucp", "approvedksotp", "согласованокуцп", "согласованоксотп"].includes(normalized)) return "approved_ku_cp";
+  if (["rejectedkucp", "rejectedksotp", "отказанокуцп", "отказаноксотп"].includes(normalized)) return "rejected_ku_cp";
+  if (["participationapplication", "заявканаучастиевтендере"].includes(normalized)) return "participation_application";
+  if (["counterpartyreview", "проработкаконтрагента"].includes(normalized)) return "counterparty_review";
+  return value;
 }
 
 function sourceValue(source: Record<string, string> | undefined, aliases: string[]): string {

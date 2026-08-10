@@ -33,6 +33,16 @@ function displayValue(value: TenderCard[keyof TenderCard] | undefined): string {
   return Array.isArray(value) ? value.join(", ") : String(value ?? "");
 }
 
+function fieldDisplayValue(key: keyof TenderCard, value: TenderCard[keyof TenderCard] | undefined): string {
+  if (!hasValue(value)) return "";
+  const field = fieldsConfig.find((item) => item.key === key);
+  if (field?.options) {
+    const option = field.options.find((item) => item.value === value || item.label === value);
+    return option?.label ?? displayValue(value);
+  }
+  return displayValue(value);
+}
+
 function sourceValue(row: ActiveCsvTender, aliases: string[]): string {
   const normalizedAliases = aliases.map(normalizeSourceKey);
   const entry = Object.entries(row.source).find(([key]) =>
@@ -497,6 +507,7 @@ export default function App() {
                     <th>Ссылка</th>
                     <th>Контрагент</th>
                     <th>Статус</th>
+                    <th>Причина статуса</th>
                     <th>ОП</th>
                     <th>НМЦК</th>
                     <th>Окончание подачи</th>
@@ -513,7 +524,8 @@ export default function App() {
                       <td>{row.reviewedAt ? "Да" : "Нет"}</td>
                       <td>{row.card.tenderUrl || row.card.tenderUrlSource || "—"}</td>
                       <td>{row.card.counterpartyName || "—"}</td>
-                      <td>{row.card.tenderStatus || "—"}</td>
+                      <td>{fieldDisplayValue("tenderStatus", row.card.tenderStatus) || "—"}</td>
+                      <td>{row.card.tenderStatusReason || "—"}</td>
                       <td>{row.card.op || "—"}</td>
                       <td>{row.card.initialPrice || "—"}</td>
                       <td>{[row.card.submissionDeadlineDate, row.card.submissionDeadlineTime].filter(Boolean).join(" ") || "—"}</td>
@@ -624,6 +636,7 @@ export default function App() {
                     <th>Ссылка</th>
                     <th>Контрагент</th>
                     <th>Статус</th>
+                    <th>Причина статуса</th>
                     <th>ОП</th>
                     <th>НМЦК</th>
                     <th>Окончание подачи</th>
@@ -640,7 +653,8 @@ export default function App() {
                       <td>{row.reviewedAt ? "Да" : "Нет"}</td>
                       <td>{row.card.tenderUrl || row.card.tenderUrlSource || "—"}</td>
                       <td>{row.card.counterpartyName || "—"}</td>
-                      <td>{row.card.tenderStatus || "—"}</td>
+                      <td>{fieldDisplayValue("tenderStatus", row.card.tenderStatus) || "—"}</td>
+                      <td>{row.card.tenderStatusReason || "—"}</td>
                       <td>{row.card.op || "—"}</td>
                       <td>{row.card.initialPrice || "—"}</td>
                       <td>{[row.card.submissionDeadlineDate, row.card.submissionDeadlineTime].filter(Boolean).join(" ") || "—"}</td>
@@ -864,6 +878,7 @@ export default function App() {
                     <th>Контрагент</th>
                     <th>ИНН</th>
                     <th>Статус</th>
+                    <th>Причина статуса</th>
                     <th>Замечания</th>
                   </tr>
                 </thead>
@@ -879,7 +894,8 @@ export default function App() {
                       <td>{item.card.tenderUrlSource || "—"}</td>
                       <td>{item.card.counterpartyName || "—"}</td>
                       <td>{item.card.counterpartyInn || "—"}</td>
-                      <td>{item.card.tenderStatus || "—"}</td>
+                      <td>{fieldDisplayValue("tenderStatus", item.card.tenderStatus) || "—"}</td>
+                      <td>{item.card.tenderStatusReason || "—"}</td>
                       <td>{item.discrepancyNotes || "—"}</td>
                     </tr>
                   ))}

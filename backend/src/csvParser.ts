@@ -83,9 +83,15 @@ const headerMap: Record<string, FieldKey> = {
   statedefenseorder: "stateDefenseOrder",
   гособоронзаказ: "stateDefenseOrder",
   tenderstatus: "tenderStatus",
+  status: "tenderStatus",
+  статус: "tenderStatus",
   статустендера: "tenderStatus",
   tenderstatusreason: "tenderStatusReason",
+  statusreason: "tenderStatusReason",
+  причина: "tenderStatusReason",
   причинастатуса: "tenderStatusReason",
+  причинастатусатендера: "tenderStatusReason",
+  причинаотказа: "tenderStatusReason",
   tenderstatusnote: "tenderStatusNote",
   примечаниекстатусу: "tenderStatusNote",
   tendergroup: "tenderGroup",
@@ -251,5 +257,18 @@ function normalizeValue(key: FieldKey, value: string): TenderCard[FieldKey] {
       .map((item) => item.trim())
       .filter((item) => item && item.toLowerCase() !== "null") as TenderCard[FieldKey];
   }
+  if (key === "tenderStatus") {
+    return normalizeTenderStatus(value) as TenderCard[FieldKey];
+  }
   return value as TenderCard[FieldKey];
+}
+
+function normalizeTenderStatus(value: string): string {
+  const normalized = normalizeHeader(value);
+  if (["loadedseldon", "загруженseldon", "загруженселдон"].includes(normalized)) return "loaded_seldon";
+  if (["approvedkucp", "approvedksotp", "согласованокуцп", "согласованоксотп"].includes(normalized)) return "approved_ku_cp";
+  if (["rejectedkucp", "rejectedksotp", "отказанокуцп", "отказаноксотп"].includes(normalized)) return "rejected_ku_cp";
+  if (["participationapplication", "заявканаучастиевтендере"].includes(normalized)) return "participation_application";
+  if (["counterpartyreview", "проработкаконтрагента"].includes(normalized)) return "counterparty_review";
+  return value;
 }

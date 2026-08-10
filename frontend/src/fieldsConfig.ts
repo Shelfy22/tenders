@@ -45,7 +45,7 @@ export const fieldsConfig: FieldConfig[] = [
   { key: "tenderUrlSource", label: "Ссылка на тендер", section: "Основные данные", type: "url", important: true },
   { key: "federalLaw", label: "Федеральный закон", section: "Основные данные", type: "select", important: true, options: [empty, { value: "44", label: "44-ФЗ" }, { value: "223", label: "223-ФЗ" }, { value: "commercial", label: "Коммерческая закупка" }] },
   { key: "stateDefenseOrder", label: "ГосОборонЗаказ", section: "Основные данные", type: "select", important: true, options: yesNo },
-  { key: "tenderStatus", label: "Статус тендера", section: "Основные данные", type: "select", options: [empty, { value: "loaded_seldon", label: "Загружен seldon" }, { value: "approved_ku_cp", label: "Согласовано КУ ЦП" }, { value: "rejected_ku_cp", label: "Отказано КУ ЦП" }, { value: "participation_application", label: "Заявка на участие в тендере" }, { value: "counterparty_review", label: "Проработка контрагента" }] },
+  { key: "tenderStatus", label: "Статус тендера", section: "Основные данные", type: "select", options: [empty, { value: "loaded_seldon", label: "Загружен seldon" }, { value: "approved_ku_cp", label: "Согласовано КСОТП" }, { value: "rejected_ku_cp", label: "Отказано КСОТП" }, { value: "participation_application", label: "Заявка на участие в тендере" }, { value: "counterparty_review", label: "Проработка контрагента" }] },
   { key: "tenderStatusReason", label: "Причина статуса", section: "Основные данные", type: "select", options: [
     empty,
     { value: "Дубль", label: "Дубль" },

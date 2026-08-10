@@ -21,7 +21,7 @@ const extraAliases: Partial<Record<FieldKey, string[]>> = {
   federalLaw: ["law", "purchase_law", "Тип закупки", "ФЗ", "Закон", "Федеральный закон"],
   stateDefenseOrder: ["ГосОборонЗаказ", "Гособоронзаказ"],
   tenderStatus: ["status", "tender_status", "Статус", "Статус тендера"],
-  tenderStatusReason: ["status_reason", "tender_status_reason", "Причина статуса"],
+  tenderStatusReason: ["reason", "status_reason", "tender_status_reason", "Причина", "Причина статуса", "Причина статуса тендера", "Причина отказа"],
   tenderStatusNote: ["Примечание к статусу"],
   tenderGroup: ["Тендерная группа"],
   resultDate: ["Дата подведения итогов"],
