@@ -1,17 +1,21 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
+  createTestingRecord,
+  exportImportedTendersByDeadline,
   getActiveCsvBatch,
   getAutofillStatus,
   getImportedTenders,
   getMonthlyStats,
   getSavedTenders,
+  getTestingData,
   saveTenderCard,
+  saveModelVersion,
   startAutofill,
   startAutofillWithDocuments,
   uploadCsvBatch
 } from "./api";
 import { fieldsConfig, initialCard } from "./fieldsConfig";
-import type { ActiveCsvTender, AutofillStatusResponse, MonthlyStats, SavedTender, TenderCard } from "./types";
+import type { ActiveCsvTender, AutofillStatusResponse, MonthlyStats, SavedTender, TenderCard, TestingRecord } from "./types";
 
 const confidenceLabels = { high: "Высокая", medium: "Средняя", low: "Низкая" };
 const purchaseTypeOptions = [
@@ -54,7 +58,7 @@ function formatDateTime(value: string | null | undefined): string {
 }
 
 export default function App() {
-  const [page, setPage] = useState<"card" | "tenders" | "database" | "saved" | "instructions">("card");
+  const [page, setPage] = useState<"card" | "tenders" | "database" | "saved" | "testing" | "instructions">("card");
   const [card, setCard] = useState<TenderCard>(initialCard);
   const [selectedImportedTenderId, setSelectedImportedTenderId] = useState<number | null>(null);
   const [csvRows, setCsvRows] = useState<ActiveCsvTender[]>([]);
@@ -66,6 +70,20 @@ export default function App() {
   const [databaseError, setDatabaseError] = useState("");
   const [savedTenders, setSavedTenders] = useState<SavedTender[]>([]);
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStats[]>([]);
+  const [testingRecords, setTestingRecords] = useState<TestingRecord[]>([]);
+  const [testingError, setTestingError] = useState("");
+  const [testingNotice, setTestingNotice] = useState("");
+  const [testingSeldonId, setTestingSeldonId] = useState("");
+  const [testingKkt, setTestingKkt] = useState("");
+  const [testingEmployeeNote, setTestingEmployeeNote] = useState("");
+  const [testingWinner, setTestingWinner] = useState<"employee" | "ai">("employee");
+  const [modelVersion, setModelVersionState] = useState(1);
+  const [modelVersionDraft, setModelVersionDraft] = useState("1");
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportDeadlineDate, setExportDeadlineDate] = useState("");
+  const [exportDownloadUrl, setExportDownloadUrl] = useState("");
+  const [exportFileName, setExportFileName] = useState("");
+  const [exportError, setExportError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [autofillMode, setAutofillMode] = useState<"url" | "documents">("url");
   const [tenderUrl, setTenderUrl] = useState("");
@@ -119,6 +137,11 @@ export default function App() {
   useEffect(() => {
     if (page !== "database") return;
     void loadDatabaseTenders();
+  }, [page]);
+
+  useEffect(() => {
+    if (page !== "testing") return;
+    void loadTestingData();
   }, [page]);
 
   const previewFields = useMemo(
@@ -220,6 +243,70 @@ export default function App() {
     }
   };
 
+  const loadTestingData = async () => {
+    setTestingError("");
+    try {
+      const response = await getTestingData();
+      setTestingRecords(response.records);
+      setModelVersionState(response.modelVersion);
+      setModelVersionDraft(String(response.modelVersion));
+    } catch (requestError) {
+      setTestingError(requestError instanceof Error ? requestError.message : "Не удалось загрузить данные тестирования");
+    }
+  };
+
+  const exportTendersByDeadline = async () => {
+    setExportError("");
+    if (!exportDeadlineDate) {
+      setExportError("Укажите дату окончания подачи");
+      return;
+    }
+    try {
+      if (exportDownloadUrl) URL.revokeObjectURL(exportDownloadUrl);
+      const blob = await exportImportedTendersByDeadline(exportDeadlineDate);
+      const url = URL.createObjectURL(blob);
+      const fileName = `tenders-deadline-${exportDeadlineDate}.csv`;
+      setExportDownloadUrl(url);
+      setExportFileName(fileName);
+    } catch (requestError) {
+      setExportError(requestError instanceof Error ? requestError.message : "Не удалось выгрузить CSV");
+    }
+  };
+
+  const saveTesting = async () => {
+    setTestingError("");
+    setTestingNotice("");
+    try {
+      const response = await createTestingRecord({
+        seldonId: testingSeldonId.trim(),
+        kkt: testingKkt.trim(),
+        employeeNote: testingEmployeeNote.trim(),
+        winner: testingWinner
+      });
+      setTestingRecords((current) => [response.record, ...current]);
+      setTestingSeldonId("");
+      setTestingKkt("");
+      setTestingEmployeeNote("");
+      setTestingWinner("employee");
+      setTestingNotice("Запись тестирования сохранена");
+    } catch (requestError) {
+      setTestingError(requestError instanceof Error ? requestError.message : "Не удалось сохранить запись тестирования");
+    }
+  };
+
+  const saveTestingModelVersion = async (increment = false) => {
+    setTestingError("");
+    setTestingNotice("");
+    try {
+      const response = await saveModelVersion(increment ? undefined : Number(modelVersionDraft));
+      setModelVersionState(response.modelVersion);
+      setModelVersionDraft(String(response.modelVersion));
+      setTestingNotice("Версия модели обновлена");
+    } catch (requestError) {
+      setTestingError(requestError instanceof Error ? requestError.message : "Не удалось обновить версию модели");
+    }
+  };
+
   const uploadCsv = async (files: FileList | null) => {
     if (!files?.length) return;
     setCsvError("");
@@ -309,6 +396,7 @@ export default function App() {
           <div className="header-actions">
             <button className="button button-secondary" onClick={() => setPage("tenders")}>Список тендеров</button>
             <button className="button button-secondary" onClick={() => setPage("database")}>Тендеры в базе</button>
+            <button className="button button-secondary" onClick={() => setPage("testing")}>Тестирование</button>
             <button className="button button-primary" onClick={() => setPage("card")}>К карточке</button>
           </div>
         </header>
@@ -354,6 +442,7 @@ export default function App() {
             <button className="button button-secondary" onClick={() => setPage("card")}>К карточке</button>
             <button className="button button-secondary" onClick={() => setPage("database")}>Тендеры в базе</button>
             <button className="button button-secondary" onClick={() => setPage("saved")}>Сохранённые</button>
+            <button className="button button-secondary" onClick={() => setPage("testing")}>Тестирование</button>
             <label className="button button-primary upload-button">
               Загрузить тендеры
               <input
@@ -418,7 +507,7 @@ export default function App() {
                   {filteredCsvRows.map((row) => (
                     <tr key={row.id} onClick={() => openTenderFromCsv(row)}>
                       <td>{row.id}</td>
-                      <td>{row.card.seldonId || sourceValue(row, ["seldonId", "seldon id", "seldon_id", "Seldon ID"]) || "—"}</td>
+                      <td>{row.card.seldonId || sourceValue(row, ["ID", "id", "seldonId", "seldon id", "seldon_id", "Seldon ID"]) || "—"}</td>
                       <td>{row.card.counterpartyInn || "—"}</td>
                       <td>{formatDateTime(row.createdAt)}</td>
                       <td>{row.reviewedAt ? "Да" : "Нет"}</td>
@@ -436,6 +525,44 @@ export default function App() {
             </div>
           )}
         </section>
+
+        {exportModalOpen && (
+          <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setExportModalOpen(false)}>
+            <section className="modal" role="dialog" aria-modal="true" aria-labelledby="export-title">
+              <div className="modal-header">
+                <div>
+                  <p className="eyebrow">Экспорт</p>
+                  <h2 id="export-title">Выгрузка тендеров по дате окончания</h2>
+                </div>
+                <button className="icon-button" onClick={() => setExportModalOpen(false)} aria-label="Закрыть">×</button>
+              </div>
+              <label className="field">
+                <span className="field-label">Дата окончания подачи</span>
+                <input
+                  type="date"
+                  value={exportDeadlineDate}
+                  onChange={(event) => {
+                    setExportDeadlineDate(event.target.value);
+                    setExportDownloadUrl("");
+                    setExportFileName("");
+                    setExportError("");
+                  }}
+                />
+              </label>
+              {exportError && <div className="alert alert-error">{exportError}</div>}
+              {exportDownloadUrl && (
+                <div className="alert alert-success">
+                  <span>Файл сформирован.</span>
+                  <a href={exportDownloadUrl} download={exportFileName}>Скачать файл</a>
+                </div>
+              )}
+              <div className="modal-footer">
+                <button className="button button-ghost" onClick={() => setExportModalOpen(false)}>Отмена</button>
+                <button className="button button-primary" onClick={() => void exportTendersByDeadline()}>Сформировать CSV</button>
+              </div>
+            </section>
+          </div>
+        )}
       </main>
     );
   }
@@ -453,6 +580,8 @@ export default function App() {
             <button className="button button-secondary" onClick={() => setPage("instructions")}>Инструкция</button>
             <button className="button button-secondary" onClick={() => setPage("tenders")}>Текущие CSV</button>
             <button className="button button-secondary" onClick={() => setPage("saved")}>Сохранённые</button>
+            <button className="button button-secondary" onClick={() => setPage("testing")}>Тестирование</button>
+            <button className="button button-secondary" onClick={() => setExportModalOpen(true)}>Выгрузить по дате</button>
             <button className="button button-primary" onClick={() => setPage("card")}>К карточке</button>
           </div>
         </header>
@@ -505,7 +634,7 @@ export default function App() {
                   {filteredDatabaseRows.map((row) => (
                     <tr key={row.id} onClick={() => openTenderFromCsv(row)}>
                       <td>{row.id}</td>
-                      <td>{row.card.seldonId || sourceValue(row, ["seldonId", "seldon id", "seldon_id", "Seldon ID"]) || "—"}</td>
+                      <td>{row.card.seldonId || sourceValue(row, ["ID", "id", "seldonId", "seldon id", "seldon_id", "Seldon ID"]) || "—"}</td>
                       <td>{row.card.counterpartyInn || "—"}</td>
                       <td>{formatDateTime(row.createdAt)}</td>
                       <td>{row.reviewedAt ? "Да" : "Нет"}</td>
@@ -516,6 +645,157 @@ export default function App() {
                       <td>{row.card.initialPrice || "—"}</td>
                       <td>{[row.card.submissionDeadlineDate, row.card.submissionDeadlineTime].filter(Boolean).join(" ") || "—"}</td>
                       <td>{row.discrepancyNotes || row.card.discrepancyNotes || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </main>
+    );
+  }
+
+  if (page === "testing") {
+    return (
+      <main className="page">
+        <header className="page-header">
+          <div>
+            <p className="eyebrow">Закупки / Проверка качества</p>
+            <h1>Тестирование</h1>
+            <p className="subtitle">Здесь сотрудники фиксируют, кто оказался прав по спорному тендеру: сотрудник или ИИ. Версия модели сохраняется вместе с каждой записью.</p>
+          </div>
+          <div className="header-actions">
+            <button className="button button-secondary" onClick={() => setPage("instructions")}>Инструкция</button>
+            <button className="button button-secondary" onClick={() => setPage("tenders")}>Список тендеров</button>
+            <button className="button button-secondary" onClick={() => setPage("database")}>Тендеры в базе</button>
+            <button className="button button-secondary" onClick={() => setPage("saved")}>Сохранённые</button>
+            <button className="button button-secondary" onClick={() => setPage("testing")}>Тестирование</button>
+            <button className="button button-primary" onClick={() => setPage("card")}>К карточке</button>
+          </div>
+        </header>
+
+        {testingNotice && <div className="alert alert-success">{testingNotice}</div>}
+        {testingError && <div className="alert alert-error">{testingError}</div>}
+
+        <section className="card">
+          <div className="card-heading">
+            <div>
+              <h2>Версия модели</h2>
+              <span>Это значение будет записано в новые строки тестирования</span>
+            </div>
+          </div>
+          <div className="modal-field-grid">
+            <label className="field">
+              <span className="field-label">Текущая версия</span>
+              <input value={modelVersion} readOnly />
+            </label>
+            <label className="field">
+              <span className="field-label">Новая версия</span>
+              <input
+                type="number"
+                min={1}
+                value={modelVersionDraft}
+                onChange={(event) => setModelVersionDraft(event.target.value)}
+              />
+            </label>
+            <div className="field">
+              <span className="field-label">Действия</span>
+              <div className="header-actions">
+                <button className="button button-secondary" onClick={() => void saveTestingModelVersion(false)}>Сохранить версию</button>
+                <button className="button button-primary" onClick={() => void saveTestingModelVersion(true)}>Увеличить на 1</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="card">
+          <div className="card-heading">
+            <div>
+              <h2>Добавить обработанный тендер</h2>
+              <span>Версия модели заполнится автоматически и не редактируется сотрудником</span>
+            </div>
+          </div>
+          <div className="form-grid">
+            <label className="field">
+              <span className="field-label">SeldonId</span>
+              <input
+                value={testingSeldonId}
+                onChange={(event) => setTestingSeldonId(event.target.value)}
+              />
+            </label>
+            <label className="field">
+              <span className="field-label">ККТ</span>
+              <input
+                value={testingKkt}
+                onChange={(event) => setTestingKkt(event.target.value)}
+              />
+            </label>
+            <label className="field">
+              <span className="field-label">Кто прав</span>
+              <select value={testingWinner} onChange={(event) => setTestingWinner(event.target.value === "ai" ? "ai" : "employee")}>
+                <option value="employee">Сотрудник</option>
+                <option value="ai">ИИ</option>
+              </select>
+            </label>
+            <label className="field">
+              <span className="field-label">Версия модели</span>
+              <input value={modelVersion} readOnly />
+            </label>
+            <label className="field field-wide">
+              <span className="field-label">Примечание сотрудника</span>
+              <textarea
+                rows={4}
+                value={testingEmployeeNote}
+                onChange={(event) => setTestingEmployeeNote(event.target.value)}
+              />
+            </label>
+          </div>
+          <div className="card-footer">
+            <button
+              className="button button-primary"
+              disabled={!testingSeldonId.trim()}
+              onClick={() => void saveTesting()}
+            >
+              Сохранить в тестирование
+            </button>
+          </div>
+        </section>
+
+        <section className="card">
+          <div className="card-heading">
+            <div>
+              <h2>Записи тестирования</h2>
+              <span>{testingRecords.length} записей</span>
+            </div>
+          </div>
+          {testingRecords.length === 0 ? (
+            <div className="empty-state">
+              <h3>Пока нет записей тестирования</h3>
+              <p>После сохранения обработанного тендера он появится в этой таблице.</p>
+            </div>
+          ) : (
+            <div className="table-wrap">
+              <table className="tenders-table">
+                <thead>
+                  <tr>
+                    <th>Дата</th>
+                    <th>SeldonId</th>
+                    <th>ККТ</th>
+                    <th>Примечание сотрудника</th>
+                    <th>Кто прав</th>
+                    <th>Версия модели</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {testingRecords.map((item) => (
+                    <tr key={item.id}>
+                      <td>{formatDateTime(item.createdAt)}</td>
+                      <td>{item.seldonId}</td>
+                      <td>{item.kkt || "—"}</td>
+                      <td>{item.employeeNote || "—"}</td>
+                      <td>{item.winner === "employee" ? "Сотрудник" : "ИИ"}</td>
+                      <td>{item.modelVersion}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -540,6 +820,7 @@ export default function App() {
             <button className="button button-secondary" onClick={() => setPage("instructions")}>Инструкция</button>
             <button className="button button-secondary" onClick={() => setPage("tenders")}>Список тендеров</button>
             <button className="button button-secondary" onClick={() => setPage("database")}>Тендеры в базе</button>
+            <button className="button button-secondary" onClick={() => setPage("testing")}>Тестирование</button>
             <button className="button button-primary" onClick={() => setPage("card")}>К карточке</button>
           </div>
         </header>
@@ -624,6 +905,7 @@ export default function App() {
           <button className="button button-secondary" onClick={() => setPage("tenders")}>Список тендеров</button>
           <button className="button button-secondary" onClick={() => setPage("database")}>Тендеры в базе</button>
           <button className="button button-secondary" onClick={() => setPage("saved")}>Сохранённые</button>
+          <button className="button button-secondary" onClick={() => setPage("testing")}>Тестирование</button>
           <button className="button button-secondary" onClick={() => openModal("url")}>Автозаполнение</button>
           <button className="button button-primary" onClick={() => openModal("documents")}>Автозаполнение + документы</button>
         </div>

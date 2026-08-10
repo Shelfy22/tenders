@@ -6,14 +6,20 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseTenderCsv } from "./csvParser.js";
 import {
+  createTestingRecord,
   getActiveCsvBatch,
+  getModelVersion,
   getMonthlyStats,
+  incrementModelVersion,
   initDatabase,
   isDatabaseConfigured,
   listImportedTenders,
+  listImportedTendersByDeadline,
   listSavedTenders,
+  listTestingRecords,
   replaceActiveCsvBatch,
-  saveTenderReview
+  saveTenderReview,
+  setModelVersion
 } from "./database.js";
 import { completeJobFromCallback, getJob, startJob } from "./jobs.js";
 import { createMockN8nResult } from "./mockN8n.js";
@@ -88,6 +94,27 @@ app.get("/api/imported-tenders", async (_req, res, next) => {
     ensureDatabase(res);
     if (res.headersSent) return;
     res.json({ tenders: await listImportedTenders() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/imported-tenders/export", async (req, res, next) => {
+  try {
+    ensureDatabase(res);
+    if (res.headersSent) return;
+    const submissionDeadlineDate = String(req.query.submissionDeadlineDate ?? "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(submissionDeadlineDate)) {
+      res.status(400).json({ success: false, error: "submissionDeadlineDate должен быть в формате YYYY-MM-DD" });
+      return;
+    }
+
+    const tenders = await listImportedTendersByDeadline(submissionDeadlineDate);
+    const csv = buildTenderExportCsv(tenders);
+    const fileName = `tenders-deadline-${submissionDeadlineDate}.csv`;
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+    res.send(`\uFEFF${csv}`);
   } catch (error) {
     next(error);
   }
@@ -293,6 +320,53 @@ app.get("/api/stats/monthly", async (_req, res, next) => {
   }
 });
 
+app.get("/api/testing", async (_req, res, next) => {
+  try {
+    ensureDatabase(res);
+    if (res.headersSent) return;
+    const [modelVersion, records] = await Promise.all([
+      getModelVersion(),
+      listTestingRecords()
+    ]);
+    res.json({ modelVersion, records });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/testing/model-version", async (req, res, next) => {
+  try {
+    ensureDatabase(res);
+    if (res.headersSent) return;
+    const version = Number(req.body?.modelVersion);
+    const modelVersion = Number.isFinite(version)
+      ? await setModelVersion(version)
+      : await incrementModelVersion();
+    res.json({ success: true, modelVersion });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/testing/records", async (req, res, next) => {
+  try {
+    ensureDatabase(res);
+    if (res.headersSent) return;
+    const seldonId = String(req.body?.seldonId ?? "").trim();
+    const kkt = String(req.body?.kkt ?? "").trim();
+    const employeeNote = String(req.body?.employeeNote ?? "").trim();
+    const winner = req.body?.winner === "ai" ? "ai" : req.body?.winner === "employee" ? "employee" : "";
+    if (!seldonId || !winner) {
+      res.status(400).json({ success: false, error: "seldonId и кто прав обязательны" });
+      return;
+    }
+    const record = await createTestingRecord({ seldonId, kkt, employeeNote, winner });
+    res.status(201).json({ success: true, record });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.post("/api/n8n-webhook-mock/tender-autofill", (req, res) => {
   if ((!req.body?.seldonId && !req.body?.etpId) || !req.body?.purchaseType) {
     res.status(400).json({ error: "один из seldonId/etpId и purchaseType обязательны" });
@@ -376,4 +450,56 @@ function ensureDatabase(res: express.Response): void {
     success: false,
     error: "DATABASE_URL is not configured"
   });
+}
+
+function buildTenderExportCsv(tenders: Awaited<ReturnType<typeof listImportedTendersByDeadline>>): string {
+  const headers = [
+    "id",
+    "seldonId",
+    "etpId",
+    "purchaseType",
+    "submissionDeadlineDate",
+    "submissionDeadlineTime",
+    "tenderUrl",
+    "counterpartyInn",
+    "counterpartyName",
+    "tenderStatus",
+    "tenderStatusReason",
+    "op",
+    "legalEntity",
+    "initialPrice",
+    "finalPrice",
+    "discrepancyNotes",
+    "reviewedAt",
+    "createdAt"
+  ];
+  const rows = tenders.map((tender) => {
+    const card = tender.card;
+    return [
+      tender.id,
+      card.seldonId,
+      card.etpId,
+      card.purchaseType,
+      card.submissionDeadlineDate,
+      card.submissionDeadlineTime,
+      card.tenderUrl || card.tenderUrlSource,
+      card.counterpartyInn,
+      card.counterpartyName,
+      card.tenderStatus,
+      card.tenderStatusReason,
+      card.op,
+      card.legalEntity,
+      card.initialPrice,
+      card.finalPrice,
+      tender.discrepancyNotes || card.discrepancyNotes,
+      tender.reviewedAt ?? "",
+      tender.createdAt
+    ];
+  });
+  return [headers, ...rows].map((row) => row.map(csvCell).join(";")).join("\n");
+}
+
+function csvCell(value: unknown): string {
+  const text = String(value ?? "");
+  return /[";\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }

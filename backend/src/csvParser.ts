@@ -57,6 +57,7 @@ const initialCard: TenderCard = {
 };
 
 const headerMap: Record<string, FieldKey> = {
+  id: "seldonId",
   seldonid: "seldonId",
   seldon: "seldonId",
   etpid: "etpId",

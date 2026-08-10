@@ -5,7 +5,8 @@ import type {
   AutofillStatusResponse,
   MonthlyStats,
   SavedTender,
-  TenderCard
+  TenderCard,
+  TestingRecord
 } from "./types";
 
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:4000" : "");
@@ -96,4 +97,38 @@ export function getSavedTenders(): Promise<{ tenders: SavedTender[] }> {
 
 export function getMonthlyStats(): Promise<{ months: MonthlyStats[] }> {
   return request("/api/stats/monthly");
+}
+
+export async function exportImportedTendersByDeadline(submissionDeadlineDate: string): Promise<Blob> {
+  const response = await fetch(
+    `${API_URL}/api/imported-tenders/export?submissionDeadlineDate=${encodeURIComponent(submissionDeadlineDate)}`
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({ error: "Не удалось выгрузить CSV" }));
+    throw new Error(body.error || "Не удалось выгрузить CSV");
+  }
+  return response.blob();
+}
+
+export function getTestingData(): Promise<{ modelVersion: number; records: TestingRecord[] }> {
+  return request("/api/testing");
+}
+
+export function saveModelVersion(modelVersion?: number): Promise<{ success: boolean; modelVersion: number }> {
+  return request("/api/testing/model-version", {
+    method: "POST",
+    body: JSON.stringify({ modelVersion })
+  });
+}
+
+export function createTestingRecord(input: {
+  seldonId: string;
+  kkt: string;
+  employeeNote: string;
+  winner: "employee" | "ai";
+}): Promise<{ success: boolean; record: TestingRecord }> {
+  return request("/api/testing/records", {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
 }

@@ -33,6 +33,16 @@ export interface MonthlyStats {
   withDiscrepancies: number;
 }
 
+export interface TestingRecord {
+  id: number;
+  seldonId: string;
+  kkt: string;
+  employeeNote: string;
+  winner: "employee" | "ai";
+  modelVersion: number;
+  createdAt: string;
+}
+
 export function isDatabaseConfigured(): boolean {
   return Boolean(pool);
 }
@@ -85,12 +95,37 @@ export async function initDatabase(): Promise<void> {
     );
 
     CREATE INDEX IF NOT EXISTS idx_saved_tenders_saved_at ON saved_tenders(saved_at);
+
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+
+    INSERT INTO app_settings(key, value)
+    VALUES('model_version', '1')
+    ON CONFLICT (key) DO NOTHING;
+
+    CREATE TABLE IF NOT EXISTS testing_records (
+      id SERIAL PRIMARY KEY,
+      seldon_id TEXT NOT NULL,
+      kkt TEXT NOT NULL DEFAULT '',
+      employee_note TEXT NOT NULL DEFAULT '',
+      winner TEXT NOT NULL CHECK (winner IN ('employee', 'ai')),
+      model_version INTEGER NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_testing_records_created_at ON testing_records(created_at);
+    CREATE INDEX IF NOT EXISTS idx_testing_records_seldon_id ON testing_records(seldon_id);
   `);
 
   await pool.query(`
     ALTER TABLE imported_tenders
       ADD COLUMN IF NOT EXISTS discrepancy_notes TEXT NOT NULL DEFAULT '',
       ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
+
+    ALTER TABLE testing_records
+      ADD COLUMN IF NOT EXISTS kkt TEXT NOT NULL DEFAULT '';
   `);
 }
 
@@ -286,6 +321,109 @@ export async function getMonthlyStats(): Promise<MonthlyStats[]> {
   }));
 }
 
+export async function listImportedTendersByDeadline(date: string): Promise<ActiveTenderRow[]> {
+  const result = await requirePool().query<{
+    id: number;
+    batch_id: number;
+    file_id: number;
+    row_index: number;
+    source: Record<string, string>;
+    card: TenderCard;
+    discrepancy_notes: string;
+    reviewed_at: Date | null;
+    created_at: Date;
+  }>(
+    `SELECT id, batch_id, file_id, row_index, source, card, discrepancy_notes, reviewed_at, created_at
+     FROM imported_tenders
+     WHERE
+       card->>'submissionDeadlineDate' = $1
+       OR left(card->>'submissionDeadline', 10) = $1
+       OR left(source->>'Окончание подачи', 10) = $1
+       OR left(source->>'Дата окончания подачи', 10) = $1
+     ORDER BY created_at DESC, id DESC`,
+    [date]
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    batchId: row.batch_id,
+    fileId: row.file_id,
+    rowIndex: row.row_index,
+    source: row.source,
+    card: normalizeStoredCard(row.card, row.source, row.discrepancy_notes),
+    discrepancyNotes: row.discrepancy_notes,
+    reviewedAt: row.reviewed_at?.toISOString() ?? null,
+    createdAt: row.created_at.toISOString()
+  }));
+}
+
+export async function getModelVersion(): Promise<number> {
+  const result = await requirePool().query<{ value: string }>(
+    "SELECT value FROM app_settings WHERE key = 'model_version'"
+  );
+  return Number(result.rows[0]?.value ?? "1") || 1;
+}
+
+export async function setModelVersion(version: number): Promise<number> {
+  const normalizedVersion = Math.max(1, Math.floor(version));
+  await requirePool().query(
+    `INSERT INTO app_settings(key, value)
+     VALUES('model_version', $1)
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+    [String(normalizedVersion)]
+  );
+  return normalizedVersion;
+}
+
+export async function incrementModelVersion(): Promise<number> {
+  const nextVersion = (await getModelVersion()) + 1;
+  return setModelVersion(nextVersion);
+}
+
+export async function listTestingRecords(): Promise<TestingRecord[]> {
+  const result = await requirePool().query<{
+    id: number;
+    seldon_id: string;
+    kkt: string;
+    employee_note: string;
+    winner: "employee" | "ai";
+    model_version: number;
+    created_at: Date;
+  }>(`
+    SELECT id, seldon_id, kkt, employee_note, winner, model_version, created_at
+    FROM testing_records
+    ORDER BY created_at DESC, id DESC
+    LIMIT 5000
+  `);
+
+  return result.rows.map(mapTestingRecord);
+}
+
+export async function createTestingRecord(input: {
+  seldonId: string;
+  kkt: string;
+  employeeNote: string;
+  winner: "employee" | "ai";
+}): Promise<TestingRecord> {
+  const modelVersion = await getModelVersion();
+  const result = await requirePool().query<{
+    id: number;
+    seldon_id: string;
+    kkt: string;
+    employee_note: string;
+    winner: "employee" | "ai";
+    model_version: number;
+    created_at: Date;
+  }>(
+    `INSERT INTO testing_records(seldon_id, kkt, employee_note, winner, model_version)
+     VALUES($1, $2, $3, $4, $5)
+     RETURNING id, seldon_id, kkt, employee_note, winner, model_version, created_at`,
+    [input.seldonId, input.kkt, input.employeeNote, input.winner, modelVersion]
+  );
+
+  return mapTestingRecord(result.rows[0]);
+}
+
 function mapSavedTender(row: {
   id: number;
   imported_tender_id: number | null;
@@ -299,6 +437,26 @@ function mapSavedTender(row: {
     card: row.card,
     discrepancyNotes: row.discrepancy_notes,
     savedAt: row.saved_at.toISOString()
+  };
+}
+
+function mapTestingRecord(row: {
+  id: number;
+  seldon_id: string;
+  kkt: string;
+  employee_note: string;
+  winner: "employee" | "ai";
+  model_version: number;
+  created_at: Date;
+}): TestingRecord {
+  return {
+    id: row.id,
+    seldonId: row.seldon_id,
+    kkt: row.kkt,
+    employeeNote: row.employee_note,
+    winner: row.winner,
+    modelVersion: row.model_version,
+    createdAt: row.created_at.toISOString()
   };
 }
 
@@ -318,7 +476,7 @@ function normalizeStoredCard(
 
   return {
     ...card,
-    seldonId: card.seldonId || sourceValue(source, ["seldonId", "seldon id", "seldon_id", "Seldon ID"]),
+    seldonId: card.seldonId || sourceValue(source, ["ID", "id", "seldonId", "seldon id", "seldon_id", "Seldon ID"]),
     etpId: card.etpId || sourceValue(source, ["etpId", "etp id", "etp_id", "ETP ID"]),
     purchaseType: card.purchaseType || sourceValue(source, ["purchaseType", "purchase_type", "Тип закупки"]) || card.federalLaw,
     tenderUrl,

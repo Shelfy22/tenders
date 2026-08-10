@@ -85,6 +85,15 @@ export interface MonthlyStats {
   savedCount: number;
   withDiscrepancies: number;
 }
+export interface TestingRecord {
+  id: number;
+  seldonId: string;
+  kkt: string;
+  employeeNote: string;
+  winner: "employee" | "ai";
+  modelVersion: number;
+  createdAt: string;
+}
 export type AutofillStatusResponse =
   | { status: "processing"; progress: string }
   | {
