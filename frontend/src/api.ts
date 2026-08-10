@@ -124,6 +124,8 @@ export function saveModelVersion(modelVersion?: number): Promise<{ success: bool
 export function createTestingRecord(input: {
   seldonId: string;
   kkt: string;
+  tenderStatus: string;
+  tenderStatusReason: string;
   employeeNote: string;
   winner: "employee" | "ai";
 }): Promise<{ success: boolean; record: TestingRecord }> {

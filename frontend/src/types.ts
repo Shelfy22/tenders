@@ -89,6 +89,8 @@ export interface TestingRecord {
   id: number;
   seldonId: string;
   kkt: string;
+  tenderStatus: string;
+  tenderStatusReason: string;
   employeeNote: string;
   winner: "employee" | "ai";
   modelVersion: number;

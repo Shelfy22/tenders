@@ -37,6 +37,8 @@ export interface TestingRecord {
   id: number;
   seldonId: string;
   kkt: string;
+  tenderStatus: string;
+  tenderStatusReason: string;
   employeeNote: string;
   winner: "employee" | "ai";
   modelVersion: number;
@@ -109,6 +111,8 @@ export async function initDatabase(): Promise<void> {
       id SERIAL PRIMARY KEY,
       seldon_id TEXT NOT NULL,
       kkt TEXT NOT NULL DEFAULT '',
+      tender_status TEXT NOT NULL DEFAULT '',
+      tender_status_reason TEXT NOT NULL DEFAULT '',
       employee_note TEXT NOT NULL DEFAULT '',
       winner TEXT NOT NULL CHECK (winner IN ('employee', 'ai')),
       model_version INTEGER NOT NULL,
@@ -125,7 +129,9 @@ export async function initDatabase(): Promise<void> {
       ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
 
     ALTER TABLE testing_records
-      ADD COLUMN IF NOT EXISTS kkt TEXT NOT NULL DEFAULT '';
+      ADD COLUMN IF NOT EXISTS kkt TEXT NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS tender_status TEXT NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS tender_status_reason TEXT NOT NULL DEFAULT '';
   `);
 }
 
@@ -385,12 +391,14 @@ export async function listTestingRecords(): Promise<TestingRecord[]> {
     id: number;
     seldon_id: string;
     kkt: string;
+    tender_status: string;
+    tender_status_reason: string;
     employee_note: string;
     winner: "employee" | "ai";
     model_version: number;
     created_at: Date;
   }>(`
-    SELECT id, seldon_id, kkt, employee_note, winner, model_version, created_at
+    SELECT id, seldon_id, kkt, tender_status, tender_status_reason, employee_note, winner, model_version, created_at
     FROM testing_records
     ORDER BY created_at DESC, id DESC
     LIMIT 5000
@@ -402,6 +410,8 @@ export async function listTestingRecords(): Promise<TestingRecord[]> {
 export async function createTestingRecord(input: {
   seldonId: string;
   kkt: string;
+  tenderStatus: string;
+  tenderStatusReason: string;
   employeeNote: string;
   winner: "employee" | "ai";
 }): Promise<TestingRecord> {
@@ -410,15 +420,17 @@ export async function createTestingRecord(input: {
     id: number;
     seldon_id: string;
     kkt: string;
+    tender_status: string;
+    tender_status_reason: string;
     employee_note: string;
     winner: "employee" | "ai";
     model_version: number;
     created_at: Date;
   }>(
-    `INSERT INTO testing_records(seldon_id, kkt, employee_note, winner, model_version)
-     VALUES($1, $2, $3, $4, $5)
-     RETURNING id, seldon_id, kkt, employee_note, winner, model_version, created_at`,
-    [input.seldonId, input.kkt, input.employeeNote, input.winner, modelVersion]
+    `INSERT INTO testing_records(seldon_id, kkt, tender_status, tender_status_reason, employee_note, winner, model_version)
+     VALUES($1, $2, $3, $4, $5, $6, $7)
+     RETURNING id, seldon_id, kkt, tender_status, tender_status_reason, employee_note, winner, model_version, created_at`,
+    [input.seldonId, input.kkt, input.tenderStatus, input.tenderStatusReason, input.employeeNote, input.winner, modelVersion]
   );
 
   return mapTestingRecord(result.rows[0]);
@@ -444,6 +456,8 @@ function mapTestingRecord(row: {
   id: number;
   seldon_id: string;
   kkt: string;
+  tender_status: string;
+  tender_status_reason: string;
   employee_note: string;
   winner: "employee" | "ai";
   model_version: number;
@@ -453,6 +467,8 @@ function mapTestingRecord(row: {
     id: row.id,
     seldonId: row.seldon_id,
     kkt: row.kkt,
+    tenderStatus: row.tender_status,
+    tenderStatusReason: row.tender_status_reason,
     employeeNote: row.employee_note,
     winner: row.winner,
     modelVersion: row.model_version,

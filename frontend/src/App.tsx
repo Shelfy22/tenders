@@ -24,6 +24,8 @@ const purchaseTypeOptions = [
   "Коммерческие закупки",
   "Международные закупки"
 ];
+const tenderStatusOptions = fieldsConfig.find((field) => field.key === "tenderStatus")?.options ?? [];
+const tenderStatusReasonOptions = fieldsConfig.find((field) => field.key === "tenderStatusReason")?.options ?? [];
 
 function hasValue(value: TenderCard[keyof TenderCard] | undefined): boolean {
   return Array.isArray(value) ? value.length > 0 : value !== "" && value !== undefined && value !== null;
@@ -85,6 +87,8 @@ export default function App() {
   const [testingNotice, setTestingNotice] = useState("");
   const [testingSeldonId, setTestingSeldonId] = useState("");
   const [testingKkt, setTestingKkt] = useState("");
+  const [testingTenderStatus, setTestingTenderStatus] = useState("");
+  const [testingTenderStatusReason, setTestingTenderStatusReason] = useState("");
   const [testingEmployeeNote, setTestingEmployeeNote] = useState("");
   const [testingWinner, setTestingWinner] = useState<"employee" | "ai">("employee");
   const [modelVersion, setModelVersionState] = useState(1);
@@ -290,12 +294,16 @@ export default function App() {
       const response = await createTestingRecord({
         seldonId: testingSeldonId.trim(),
         kkt: testingKkt.trim(),
+        tenderStatus: testingTenderStatus,
+        tenderStatusReason: testingTenderStatusReason,
         employeeNote: testingEmployeeNote.trim(),
         winner: testingWinner
       });
       setTestingRecords((current) => [response.record, ...current]);
       setTestingSeldonId("");
       setTestingKkt("");
+      setTestingTenderStatus("");
+      setTestingTenderStatusReason("");
       setTestingEmployeeNote("");
       setTestingWinner("employee");
       setTestingNotice("Запись тестирования сохранена");
@@ -747,6 +755,22 @@ export default function App() {
               />
             </label>
             <label className="field">
+              <span className="field-label">Статус тендера</span>
+              <select value={testingTenderStatus} onChange={(event) => setTestingTenderStatus(event.target.value)}>
+                {tenderStatusOptions.map((option) => (
+                  <option value={option.value} key={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span className="field-label">Причина статуса</span>
+              <select value={testingTenderStatusReason} onChange={(event) => setTestingTenderStatusReason(event.target.value)}>
+                {tenderStatusReasonOptions.map((option) => (
+                  <option value={option.value} key={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
               <span className="field-label">Кто прав</span>
               <select value={testingWinner} onChange={(event) => setTestingWinner(event.target.value === "ai" ? "ai" : "employee")}>
                 <option value="employee">Сотрудник</option>
@@ -797,6 +821,8 @@ export default function App() {
                     <th>Дата</th>
                     <th>SeldonId</th>
                     <th>ККТ</th>
+                    <th>Статус тендера</th>
+                    <th>Причина статуса</th>
                     <th>Примечание сотрудника</th>
                     <th>Кто прав</th>
                     <th>Версия модели</th>
@@ -808,6 +834,8 @@ export default function App() {
                       <td>{formatDateTime(item.createdAt)}</td>
                       <td>{item.seldonId}</td>
                       <td>{item.kkt || "—"}</td>
+                      <td>{fieldDisplayValue("tenderStatus", item.tenderStatus) || "—"}</td>
+                      <td>{item.tenderStatusReason || "—"}</td>
                       <td>{item.employeeNote || "—"}</td>
                       <td>{item.winner === "employee" ? "Сотрудник" : "ИИ"}</td>
                       <td>{item.modelVersion}</td>
