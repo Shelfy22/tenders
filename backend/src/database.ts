@@ -40,6 +40,9 @@ export interface TestingRecord {
   tenderStatus: string;
   tenderStatusReason: string;
   employeeNote: string;
+  aiTenderStatus: string;
+  aiTenderStatusReason: string;
+  aiTenderStatusNote: string;
   modelVersion: number;
   createdAt: string;
 }
@@ -113,6 +116,9 @@ export async function initDatabase(): Promise<void> {
       tender_status TEXT NOT NULL DEFAULT '',
       tender_status_reason TEXT NOT NULL DEFAULT '',
       employee_note TEXT NOT NULL DEFAULT '',
+      ai_tender_status TEXT NOT NULL DEFAULT '',
+      ai_tender_status_reason TEXT NOT NULL DEFAULT '',
+      ai_tender_status_note TEXT NOT NULL DEFAULT '',
       winner TEXT NOT NULL CHECK (winner IN ('employee', 'ai')),
       model_version INTEGER NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -130,8 +136,13 @@ export async function initDatabase(): Promise<void> {
     ALTER TABLE testing_records
       ADD COLUMN IF NOT EXISTS kkt TEXT NOT NULL DEFAULT '',
       ADD COLUMN IF NOT EXISTS tender_status TEXT NOT NULL DEFAULT '',
-      ADD COLUMN IF NOT EXISTS tender_status_reason TEXT NOT NULL DEFAULT '';
+      ADD COLUMN IF NOT EXISTS tender_status_reason TEXT NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS ai_tender_status TEXT NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS ai_tender_status_reason TEXT NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS ai_tender_status_note TEXT NOT NULL DEFAULT '';
   `);
+
+  await backfillTestingAiFields();
 }
 
 export async function replaceActiveCsvBatch(files: Array<{
@@ -393,10 +404,24 @@ export async function listTestingRecords(): Promise<TestingRecord[]> {
     tender_status: string;
     tender_status_reason: string;
     employee_note: string;
+    ai_tender_status: string;
+    ai_tender_status_reason: string;
+    ai_tender_status_note: string;
     model_version: number;
     created_at: Date;
   }>(`
-    SELECT id, seldon_id, kkt, tender_status, tender_status_reason, employee_note, model_version, created_at
+    SELECT
+      id,
+      seldon_id,
+      kkt,
+      tender_status,
+      tender_status_reason,
+      employee_note,
+      ai_tender_status,
+      ai_tender_status_reason,
+      ai_tender_status_note,
+      model_version,
+      created_at
     FROM testing_records
     ORDER BY created_at DESC, id DESC
     LIMIT 5000
@@ -413,6 +438,7 @@ export async function createTestingRecord(input: {
   employeeNote: string;
 }): Promise<TestingRecord> {
   const modelVersion = await getModelVersion();
+  const aiFields = await findAiTenderFieldsBySeldonId(input.seldonId);
   const result = await requirePool().query<{
     id: number;
     seldon_id: string;
@@ -420,16 +446,163 @@ export async function createTestingRecord(input: {
     tender_status: string;
     tender_status_reason: string;
     employee_note: string;
+    ai_tender_status: string;
+    ai_tender_status_reason: string;
+    ai_tender_status_note: string;
     model_version: number;
     created_at: Date;
   }>(
-    `INSERT INTO testing_records(seldon_id, kkt, tender_status, tender_status_reason, employee_note, winner, model_version)
-     VALUES($1, $2, $3, $4, $5, $6, $7)
-     RETURNING id, seldon_id, kkt, tender_status, tender_status_reason, employee_note, model_version, created_at`,
-    [input.seldonId, input.kkt, input.tenderStatus, input.tenderStatusReason, input.employeeNote, "employee", modelVersion]
+    `INSERT INTO testing_records(
+       seldon_id,
+       kkt,
+       tender_status,
+       tender_status_reason,
+       employee_note,
+       ai_tender_status,
+       ai_tender_status_reason,
+       ai_tender_status_note,
+       winner,
+       model_version
+     )
+     VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+     RETURNING
+       id,
+       seldon_id,
+       kkt,
+       tender_status,
+       tender_status_reason,
+       employee_note,
+       ai_tender_status,
+       ai_tender_status_reason,
+       ai_tender_status_note,
+       model_version,
+       created_at`,
+    [
+      input.seldonId,
+      input.kkt,
+      input.tenderStatus,
+      input.tenderStatusReason,
+      input.employeeNote,
+      aiFields.aiTenderStatus,
+      aiFields.aiTenderStatusReason,
+      aiFields.aiTenderStatusNote,
+      "employee",
+      modelVersion
+    ]
   );
 
   return mapTestingRecord(result.rows[0]);
+}
+
+async function backfillTestingAiFields(): Promise<void> {
+  await requirePool().query(`
+    WITH matched AS (
+      SELECT DISTINCT ON (testing.id)
+        testing.id AS testing_id,
+        imported.card AS card,
+        imported.source AS source,
+        imported.discrepancy_notes AS discrepancy_notes
+      FROM testing_records testing
+      JOIN imported_tenders imported
+        ON btrim(testing.seldon_id) = btrim(COALESCE(
+          NULLIF(imported.card->>'seldonId', ''),
+          NULLIF(imported.source->>'ID', ''),
+          NULLIF(imported.source->>'id', ''),
+          NULLIF(imported.source->>'seldonId', ''),
+          NULLIF(imported.source->>'seldon id', ''),
+          NULLIF(imported.source->>'seldon_id', ''),
+          NULLIF(imported.source->>'Seldon ID', '')
+        ))
+      LEFT JOIN csv_batches batch ON batch.id = imported.batch_id
+      WHERE btrim(testing.seldon_id) <> ''
+        AND (
+          testing.ai_tender_status = ''
+          OR testing.ai_tender_status_reason = ''
+          OR testing.ai_tender_status_note = ''
+        )
+      ORDER BY testing.id, batch.active DESC, imported.created_at DESC, imported.id DESC
+    )
+    UPDATE testing_records testing
+    SET
+      ai_tender_status = COALESCE(
+        NULLIF(testing.ai_tender_status, ''),
+        NULLIF(matched.card->>'tenderStatus', ''),
+        NULLIF(matched.source->>'tenderStatus', ''),
+        NULLIF(matched.source->>'tender_status', ''),
+        NULLIF(matched.source->>'status', ''),
+        NULLIF(matched.source->>'Статус', ''),
+        NULLIF(matched.source->>'Статус тендера', ''),
+        ''
+      ),
+      ai_tender_status_reason = COALESCE(
+        NULLIF(testing.ai_tender_status_reason, ''),
+        NULLIF(matched.card->>'tenderStatusReason', ''),
+        NULLIF(matched.source->>'tenderStatusReason', ''),
+        NULLIF(matched.source->>'tender_status_reason', ''),
+        NULLIF(matched.source->>'status_reason', ''),
+        NULLIF(matched.source->>'Причина', ''),
+        NULLIF(matched.source->>'Причина статуса', ''),
+        NULLIF(matched.source->>'Причина статуса тендера', ''),
+        NULLIF(matched.source->>'Причина отказа', ''),
+        ''
+      ),
+      ai_tender_status_note = COALESCE(
+        NULLIF(testing.ai_tender_status_note, ''),
+        NULLIF(matched.card->>'tenderStatusNote', ''),
+        NULLIF(matched.source->>'tenderStatusNote', ''),
+        NULLIF(matched.source->>'tender_status_note', ''),
+        NULLIF(matched.source->>'Примечание к статусу', ''),
+        matched.discrepancy_notes,
+        ''
+      )
+    FROM matched
+    WHERE testing.id = matched.testing_id;
+  `);
+}
+
+async function findAiTenderFieldsBySeldonId(seldonId: string): Promise<{
+  aiTenderStatus: string;
+  aiTenderStatusReason: string;
+  aiTenderStatusNote: string;
+}> {
+  const normalizedSeldonId = seldonId.trim();
+  if (!normalizedSeldonId) {
+    return { aiTenderStatus: "", aiTenderStatusReason: "", aiTenderStatusNote: "" };
+  }
+
+  const result = await requirePool().query<{
+    card: TenderCard;
+    source: Record<string, string>;
+    discrepancy_notes: string;
+  }>(
+    `SELECT imported.card, imported.source, imported.discrepancy_notes
+     FROM imported_tenders imported
+     LEFT JOIN csv_batches batch ON batch.id = imported.batch_id
+     WHERE btrim(COALESCE(
+       NULLIF(imported.card->>'seldonId', ''),
+       NULLIF(imported.source->>'ID', ''),
+       NULLIF(imported.source->>'id', ''),
+       NULLIF(imported.source->>'seldonId', ''),
+       NULLIF(imported.source->>'seldon id', ''),
+       NULLIF(imported.source->>'seldon_id', ''),
+       NULLIF(imported.source->>'Seldon ID', '')
+     )) = $1
+     ORDER BY batch.active DESC, imported.created_at DESC, imported.id DESC
+     LIMIT 1`,
+    [normalizedSeldonId]
+  );
+
+  const row = result.rows[0];
+  if (!row) {
+    return { aiTenderStatus: "", aiTenderStatusReason: "", aiTenderStatusNote: "" };
+  }
+
+  const card = normalizeStoredCard(row.card, row.source, row.discrepancy_notes);
+  return {
+    aiTenderStatus: card.tenderStatus || "",
+    aiTenderStatusReason: card.tenderStatusReason || "",
+    aiTenderStatusNote: card.tenderStatusNote || row.discrepancy_notes || ""
+  };
 }
 
 function mapSavedTender(row: {
@@ -455,6 +628,9 @@ function mapTestingRecord(row: {
   tender_status: string;
   tender_status_reason: string;
   employee_note: string;
+  ai_tender_status: string;
+  ai_tender_status_reason: string;
+  ai_tender_status_note: string;
   model_version: number;
   created_at: Date;
 }): TestingRecord {
@@ -465,6 +641,9 @@ function mapTestingRecord(row: {
     tenderStatus: row.tender_status,
     tenderStatusReason: row.tender_status_reason,
     employeeNote: row.employee_note,
+    aiTenderStatus: row.ai_tender_status,
+    aiTenderStatusReason: row.ai_tender_status_reason,
+    aiTenderStatusNote: row.ai_tender_status_note,
     modelVersion: row.model_version,
     createdAt: row.created_at.toISOString()
   };
@@ -498,6 +677,14 @@ function normalizeStoredCard(
       "Причина статуса",
       "Причина статуса тендера",
       "Причина отказа"
+    ]),
+    tenderStatusNote: card.tenderStatusNote || sourceValue(source, [
+      "tenderStatusNote",
+      "tender_status_note",
+      "status_note",
+      "Примечание к статусу",
+      "Примечание статуса",
+      "Примечание к статусу тендера"
     ]),
     tenderUrl,
     tenderUrlSource: card.tenderUrlSource || tenderUrl,

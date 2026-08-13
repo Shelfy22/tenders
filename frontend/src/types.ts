@@ -92,6 +92,9 @@ export interface TestingRecord {
   tenderStatus: string;
   tenderStatusReason: string;
   employeeNote: string;
+  aiTenderStatus: string;
+  aiTenderStatusReason: string;
+  aiTenderStatusNote: string;
   modelVersion: number;
   createdAt: string;
 }

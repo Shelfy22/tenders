@@ -70,7 +70,7 @@ function formatDateTime(value: string | null | undefined): string {
 }
 
 export default function App() {
-  const [page, setPage] = useState<"card" | "tenders" | "database" | "saved" | "testing" | "instructions">("card");
+  const [page, setPage] = useState<"card" | "tenders" | "database" | "saved" | "testing" | "testing-detail" | "instructions">("card");
   const [card, setCard] = useState<TenderCard>(initialCard);
   const [selectedImportedTenderId, setSelectedImportedTenderId] = useState<number | null>(null);
   const [csvRows, setCsvRows] = useState<ActiveCsvTender[]>([]);
@@ -83,6 +83,7 @@ export default function App() {
   const [savedTenders, setSavedTenders] = useState<SavedTender[]>([]);
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStats[]>([]);
   const [testingRecords, setTestingRecords] = useState<TestingRecord[]>([]);
+  const [selectedTestingRecord, setSelectedTestingRecord] = useState<TestingRecord | null>(null);
   const [testingError, setTestingError] = useState("");
   const [testingNotice, setTestingNotice] = useState("");
   const [testingSeldonId, setTestingSeldonId] = useState("");
@@ -676,6 +677,77 @@ export default function App() {
     );
   }
 
+  if (page === "testing-detail") {
+    const item = selectedTestingRecord;
+    return (
+      <main className="page">
+        <header className="page-header">
+          <div>
+            <p className="eyebrow">Закупки / Проверка качества</p>
+            <h1>Запись тестирования</h1>
+            <p className="subtitle">Полный просмотр полей сотрудника и ответа ИИ по этому SeldonId.</p>
+          </div>
+          <div className="header-actions">
+            <button className="button button-secondary" onClick={() => setPage("testing")}>К тестированию</button>
+            <button className="button button-primary" onClick={() => setPage("card")}>К карточке</button>
+          </div>
+        </header>
+
+        {!item ? (
+          <section className="card">
+            <div className="empty-state">
+              <h3>Запись не выбрана</h3>
+              <p>Вернитесь в таблицу тестирования и нажмите на нужный тендер.</p>
+            </div>
+          </section>
+        ) : (
+          <section className="card">
+            <div className="card-heading">
+              <div>
+                <h2>SeldonId: {item.seldonId}</h2>
+                <span>Дата заполнения: {formatDateTime(item.createdAt)}</span>
+              </div>
+            </div>
+            <div className="form-grid">
+              <label className="field">
+                <span className="field-label">ККТ</span>
+                <input value={item.kkt || "—"} readOnly />
+              </label>
+              <label className="field">
+                <span className="field-label">Версия модели</span>
+                <input value={item.modelVersion} readOnly />
+              </label>
+              <label className="field">
+                <span className="field-label">Статус тендера</span>
+                <input value={fieldDisplayValue("tenderStatus", item.tenderStatus) || "—"} readOnly />
+              </label>
+              <label className="field">
+                <span className="field-label">Причина статуса</span>
+                <input value={fieldDisplayValue("tenderStatusReason", item.tenderStatusReason) || item.tenderStatusReason || "—"} readOnly />
+              </label>
+              <label className="field">
+                <span className="field-label">ИИ Статус тендера</span>
+                <input value={fieldDisplayValue("tenderStatus", item.aiTenderStatus) || "—"} readOnly />
+              </label>
+              <label className="field">
+                <span className="field-label">ИИ Причина статуса</span>
+                <input value={fieldDisplayValue("tenderStatusReason", item.aiTenderStatusReason) || item.aiTenderStatusReason || "—"} readOnly />
+              </label>
+              <label className="field field-wide">
+                <span className="field-label">Примечание сотрудника</span>
+                <textarea rows={7} value={item.employeeNote || "—"} readOnly />
+              </label>
+              <label className="field field-wide">
+                <span className="field-label">ИИ Примечание к статусу</span>
+                <textarea rows={7} value={item.aiTenderStatusNote || "—"} readOnly />
+              </label>
+            </div>
+          </section>
+        )}
+      </main>
+    );
+  }
+
   if (page === "testing") {
     return (
       <main className="page">
@@ -683,7 +755,7 @@ export default function App() {
           <div>
             <p className="eyebrow">Закупки / Проверка качества</p>
             <h1>Тестирование</h1>
-            <p className="subtitle">Здесь сотрудники фиксируют, кто оказался прав по спорному тендеру: сотрудник или ИИ. Версия модели сохраняется вместе с каждой записью.</p>
+            <p className="subtitle">Здесь сотрудники фиксируют вручную обработанные тендеры. При сохранении сайт подтягивает статус, причину и примечание ИИ из базы по SeldonId.</p>
           </div>
           <div className="header-actions">
             <button className="button button-secondary" onClick={() => setPage("instructions")}>Инструкция</button>
@@ -814,18 +886,27 @@ export default function App() {
                     <th>Статус тендера</th>
                     <th>Причина статуса</th>
                     <th>Примечание сотрудника</th>
+                    <th>ИИ Статус тендера</th>
+                    <th>ИИ Причина статуса</th>
+                    <th>ИИ Примечание к статусу</th>
                     <th>Версия модели</th>
                   </tr>
                 </thead>
                 <tbody>
                   {testingRecords.map((item) => (
-                    <tr key={item.id}>
+                    <tr key={item.id} onClick={() => {
+                      setSelectedTestingRecord(item);
+                      setPage("testing-detail");
+                    }}>
                       <td>{formatDateTime(item.createdAt)}</td>
                       <td>{item.seldonId}</td>
                       <td>{item.kkt || "—"}</td>
                       <td>{fieldDisplayValue("tenderStatus", item.tenderStatus) || "—"}</td>
-                      <td>{item.tenderStatusReason || "—"}</td>
+                      <td>{fieldDisplayValue("tenderStatusReason", item.tenderStatusReason) || item.tenderStatusReason || "—"}</td>
                       <td>{item.employeeNote || "—"}</td>
+                      <td>{fieldDisplayValue("tenderStatus", item.aiTenderStatus) || "—"}</td>
+                      <td>{fieldDisplayValue("tenderStatusReason", item.aiTenderStatusReason) || item.aiTenderStatusReason || "—"}</td>
+                      <td>{item.aiTenderStatusNote || "—"}</td>
                       <td>{item.modelVersion}</td>
                     </tr>
                   ))}
