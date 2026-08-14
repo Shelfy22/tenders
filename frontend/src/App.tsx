@@ -158,6 +158,25 @@ export default function App() {
     void loadTestingData();
   }, [page]);
 
+  useEffect(() => {
+    const match = /^#testing-record-(\d+)$/.exec(window.location.hash);
+    if (!match) return;
+
+    const testingRecordId = Number(match[1]);
+    setPage("testing-detail");
+    setTestingError("");
+    getTestingData()
+      .then((response) => {
+        setTestingRecords(response.records);
+        setModelVersionState(response.modelVersion);
+        setModelVersionDraft(String(response.modelVersion));
+        setSelectedTestingRecord(response.records.find((record) => record.id === testingRecordId) ?? null);
+      })
+      .catch((requestError) => {
+        setTestingError(requestError instanceof Error ? requestError.message : "Не удалось загрузить данные тестирования");
+      });
+  }, []);
+
   const previewFields = useMemo(
     () => fieldsConfig.filter(({ key }) => result?.meta[key] || hasValue(result?.fields[key])),
     [result]
@@ -267,6 +286,11 @@ export default function App() {
     } catch (requestError) {
       setTestingError(requestError instanceof Error ? requestError.message : "Не удалось загрузить данные тестирования");
     }
+  };
+
+  const openTestingRecordInNewTab = (item: TestingRecord) => {
+    const baseUrl = window.location.href.split("#")[0];
+    window.open(`${baseUrl}#testing-record-${item.id}`, "_blank", "noopener,noreferrer");
   };
 
   const exportTendersByDeadline = async () => {
@@ -688,7 +712,10 @@ export default function App() {
             <p className="subtitle">Полный просмотр полей сотрудника и ответа ИИ по этому SeldonId.</p>
           </div>
           <div className="header-actions">
-            <button className="button button-secondary" onClick={() => setPage("testing")}>К тестированию</button>
+            <button className="button button-secondary" onClick={() => {
+              window.history.replaceState(null, "", window.location.href.split("#")[0]);
+              setPage("testing");
+            }}>К тестированию</button>
             <button className="button button-primary" onClick={() => setPage("card")}>К карточке</button>
           </div>
         </header>
@@ -894,10 +921,7 @@ export default function App() {
                 </thead>
                 <tbody>
                   {testingRecords.map((item) => (
-                    <tr key={item.id} onClick={() => {
-                      setSelectedTestingRecord(item);
-                      setPage("testing-detail");
-                    }}>
+                    <tr key={item.id} onClick={() => openTestingRecordInNewTab(item)}>
                       <td>{formatDateTime(item.createdAt)}</td>
                       <td>{item.seldonId}</td>
                       <td>{item.kkt || "—"}</td>
