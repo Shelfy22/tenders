@@ -60,6 +60,10 @@ textarea { resize: vertical; }
 
 .tenders-toolbar { align-items: flex-end; }
 .tenders-search { width: min(360px, 100%); }
+.testing-export { align-items: flex-end; }
+.export-range-field { width: 92px; }
+.card-alert { margin: 0 28px 18px; }
+.button[href] { display: inline-flex; align-items: center; text-decoration: none; }
 .empty-state { padding: 44px 28px; color: #677085; text-align: center; }
 .empty-state h3 { margin-bottom: 8px; color: #313a4d; }
 .empty-state p { margin-bottom: 0; }

@@ -69,6 +69,10 @@ function formatDateTime(value: string | null | undefined): string {
   return value ? new Date(value).toLocaleString("ru-RU") : "—";
 }
 
+function csvCell(value: unknown): string {
+  return `"${String(value ?? "").replaceAll('"', '""')}"`;
+}
+
 export default function App() {
   const [page, setPage] = useState<"card" | "tenders" | "database" | "saved" | "testing" | "testing-detail" | "instructions">("card");
   const [card, setCard] = useState<TenderCard>(initialCard);
@@ -91,6 +95,11 @@ export default function App() {
   const [testingTenderStatus, setTestingTenderStatus] = useState("");
   const [testingTenderStatusReason, setTestingTenderStatusReason] = useState("");
   const [testingEmployeeNote, setTestingEmployeeNote] = useState("");
+  const [testingExportFrom, setTestingExportFrom] = useState("1");
+  const [testingExportTo, setTestingExportTo] = useState("");
+  const [testingExportDownloadUrl, setTestingExportDownloadUrl] = useState("");
+  const [testingExportFileName, setTestingExportFileName] = useState("");
+  const [testingExportError, setTestingExportError] = useState("");
   const [modelVersion, setModelVersionState] = useState(1);
   const [modelVersionDraft, setModelVersionDraft] = useState("1");
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -291,6 +300,61 @@ export default function App() {
   const openTestingRecordInNewTab = (item: TestingRecord) => {
     const baseUrl = window.location.href.split("#")[0];
     window.open(`${baseUrl}#testing-record-${item.id}`, "_blank", "noopener,noreferrer");
+  };
+
+  const exportTestingRecordsRange = () => {
+    setTestingExportError("");
+    setTestingExportFileName("");
+    if (testingExportDownloadUrl) URL.revokeObjectURL(testingExportDownloadUrl);
+    setTestingExportDownloadUrl("");
+
+    const from = Number(testingExportFrom);
+    const to = Number(testingExportTo);
+    if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to < from) {
+      setTestingExportError("Укажите корректный диапазон строк, например с 1 по 150");
+      return;
+    }
+
+    const selectedRows = testingRecords.slice(from - 1, to);
+    if (selectedRows.length === 0) {
+      setTestingExportError("В указанном диапазоне нет записей");
+      return;
+    }
+
+    const headers = [
+      "Номер строки",
+      "Дата заполнения",
+      "SeldonId",
+      "ККТ",
+      "Статус тендера",
+      "Причина статуса",
+      "Примечание сотрудника",
+      "ИИ Статус тендера",
+      "ИИ Причина статуса",
+      "ИИ Примечание к статусу",
+      "Версия модели"
+    ];
+    const lines = [
+      headers.map(csvCell).join(";"),
+      ...selectedRows.map((item, index) => [
+        from + index,
+        formatDateTime(item.createdAt),
+        item.seldonId,
+        item.kkt,
+        fieldDisplayValue("tenderStatus", item.tenderStatus) || item.tenderStatus,
+        fieldDisplayValue("tenderStatusReason", item.tenderStatusReason) || item.tenderStatusReason,
+        item.employeeNote,
+        fieldDisplayValue("tenderStatus", item.aiTenderStatus) || item.aiTenderStatus,
+        fieldDisplayValue("tenderStatusReason", item.aiTenderStatusReason) || item.aiTenderStatusReason,
+        item.aiTenderStatusNote,
+        item.modelVersion
+      ].map(csvCell).join(";"))
+    ];
+
+    const blob = new Blob(["\ufeff", lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    setTestingExportDownloadUrl(url);
+    setTestingExportFileName(`testing-records-${from}-${from + selectedRows.length - 1}.csv`);
   };
 
   const exportTendersByDeadline = async () => {
@@ -891,12 +955,57 @@ export default function App() {
         </section>
 
         <section className="card">
-          <div className="card-heading">
+          <div className="card-heading tenders-toolbar">
             <div>
               <h2>Записи тестирования</h2>
               <span>{testingRecords.length} записей</span>
             </div>
+            <div className="header-actions testing-export">
+              <label className="field export-range-field">
+                <span className="field-label">С</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={testingExportFrom}
+                  onChange={(event) => {
+                    setTestingExportFrom(event.target.value);
+                    setTestingExportError("");
+                    setTestingExportDownloadUrl("");
+                    setTestingExportFileName("");
+                  }}
+                />
+              </label>
+              <label className="field export-range-field">
+                <span className="field-label">По</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={testingRecords.length || undefined}
+                  placeholder={String(testingRecords.length || 1)}
+                  value={testingExportTo}
+                  onChange={(event) => {
+                    setTestingExportTo(event.target.value);
+                    setTestingExportError("");
+                    setTestingExportDownloadUrl("");
+                    setTestingExportFileName("");
+                  }}
+                />
+              </label>
+              <button
+                className="button button-secondary"
+                disabled={testingRecords.length === 0}
+                onClick={exportTestingRecordsRange}
+              >
+                Сформировать CSV
+              </button>
+              {testingExportDownloadUrl && (
+                <a className="button button-primary" href={testingExportDownloadUrl} download={testingExportFileName}>
+                  Скачать файл
+                </a>
+              )}
+            </div>
           </div>
+          {testingExportError && <div className="alert alert-error card-alert">{testingExportError}</div>}
           {testingRecords.length === 0 ? (
             <div className="empty-state">
               <h3>Пока нет записей тестирования</h3>
