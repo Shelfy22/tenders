@@ -375,38 +375,23 @@ export default function App() {
       return;
     }
 
-    const headers = [
-      "ID",
-      "seldon id",
-      "ИНН",
-      "Дата добавления",
-      "Проверен",
-      "Ссылка",
-      "Контрагент",
-      "Статус",
-      "Причина статуса",
-      "ОП",
-      "НМЦК",
-      "Окончание подачи",
-      "Примечания"
-    ];
+    const headers = ["ID базы", "Дата добавления", "Проверен", ...fieldsConfig.map((field) => field.label)];
     const lines = [
       headers.map(csvCell).join(";"),
-      ...selectedRows.map((row) => [
-        row.id,
-        row.card.seldonId || sourceValue(row, ["ID", "id", "seldonId", "seldon id", "seldon_id", "Seldon ID"]),
-        row.card.counterpartyInn,
-        formatDateTime(row.createdAt),
-        row.reviewedAt ? "Да" : "Нет",
-        row.card.tenderUrl || row.card.tenderUrlSource,
-        row.card.counterpartyName,
-        fieldDisplayValue("tenderStatus", row.card.tenderStatus) || row.card.tenderStatus,
-        fieldDisplayValue("tenderStatusReason", row.card.tenderStatusReason) || row.card.tenderStatusReason,
-        row.card.op,
-        row.card.initialPrice,
-        [row.card.submissionDeadlineDate, row.card.submissionDeadlineTime].filter(Boolean).join(" "),
-        row.discrepancyNotes || row.card.discrepancyNotes
-      ].map(csvCell).join(";"))
+      ...selectedRows.map((row) => {
+        const cardForExport = {
+          ...row.card,
+          discrepancyNotes: row.discrepancyNotes || row.card.discrepancyNotes
+        };
+        return [
+          row.id,
+          formatDateTime(row.createdAt),
+          row.reviewedAt ? "Да" : "Нет",
+          ...fieldsConfig.map((field) =>
+            fieldDisplayValue(field.key, cardForExport[field.key]) || displayValue(cardForExport[field.key])
+          )
+        ].map(csvCell).join(";");
+      })
     ];
 
     const blob = new Blob(["\ufeff", lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
