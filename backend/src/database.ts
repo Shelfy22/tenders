@@ -106,8 +106,16 @@ export async function initDatabase(): Promise<void> {
     );
 
     INSERT INTO app_settings(key, value)
-    VALUES('model_version', '1')
+    VALUES('model_version', '2')
     ON CONFLICT (key) DO NOTHING;
+
+    UPDATE app_settings
+    SET value = '2'
+    WHERE key = 'model_version'
+      AND CASE
+        WHEN value ~ '^\\d+$' THEN value::integer < 2
+        ELSE true
+      END;
 
     CREATE TABLE IF NOT EXISTS testing_records (
       id SERIAL PRIMARY KEY,
@@ -377,11 +385,11 @@ export async function getModelVersion(): Promise<number> {
   const result = await requirePool().query<{ value: string }>(
     "SELECT value FROM app_settings WHERE key = 'model_version'"
   );
-  return Number(result.rows[0]?.value ?? "1") || 1;
+  return Number(result.rows[0]?.value ?? "2") || 2;
 }
 
 export async function setModelVersion(version: number): Promise<number> {
-  const normalizedVersion = Math.max(1, Math.floor(version));
+  const normalizedVersion = Math.max(2, Math.floor(version));
   await requirePool().query(
     `INSERT INTO app_settings(key, value)
      VALUES('model_version', $1)

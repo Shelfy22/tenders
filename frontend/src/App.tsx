@@ -1,7 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   createTestingRecord,
-  exportImportedTendersByDeadline,
   getActiveCsvBatch,
   getAutofillStatus,
   getImportedTenders,
@@ -102,11 +101,11 @@ export default function App() {
   const [testingExportError, setTestingExportError] = useState("");
   const [modelVersion, setModelVersionState] = useState(1);
   const [modelVersionDraft, setModelVersionDraft] = useState("1");
-  const [exportModalOpen, setExportModalOpen] = useState(false);
-  const [exportDeadlineDate, setExportDeadlineDate] = useState("");
-  const [exportDownloadUrl, setExportDownloadUrl] = useState("");
-  const [exportFileName, setExportFileName] = useState("");
-  const [exportError, setExportError] = useState("");
+  const [databaseExportFrom, setDatabaseExportFrom] = useState("1");
+  const [databaseExportTo, setDatabaseExportTo] = useState("");
+  const [databaseExportDownloadUrl, setDatabaseExportDownloadUrl] = useState("");
+  const [databaseExportFileName, setDatabaseExportFileName] = useState("");
+  const [databaseExportError, setDatabaseExportError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [autofillMode, setAutofillMode] = useState<"url" | "documents">("url");
   const [tenderUrl, setTenderUrl] = useState("");
@@ -357,22 +356,63 @@ export default function App() {
     setTestingExportFileName(`testing-records-${from}-${from + selectedRows.length - 1}.csv`);
   };
 
-  const exportTendersByDeadline = async () => {
-    setExportError("");
-    if (!exportDeadlineDate) {
-      setExportError("Укажите дату окончания подачи");
+  const exportDatabaseRowsByIdRange = () => {
+    setDatabaseExportError("");
+    setDatabaseExportFileName("");
+    if (databaseExportDownloadUrl) URL.revokeObjectURL(databaseExportDownloadUrl);
+    setDatabaseExportDownloadUrl("");
+
+    const from = Number(databaseExportFrom);
+    const to = Number(databaseExportTo);
+    if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to < from) {
+      setDatabaseExportError("Укажите корректный диапазон ID, например с 1 по 343");
       return;
     }
-    try {
-      if (exportDownloadUrl) URL.revokeObjectURL(exportDownloadUrl);
-      const blob = await exportImportedTendersByDeadline(exportDeadlineDate);
-      const url = URL.createObjectURL(blob);
-      const fileName = `tenders-deadline-${exportDeadlineDate}.csv`;
-      setExportDownloadUrl(url);
-      setExportFileName(fileName);
-    } catch (requestError) {
-      setExportError(requestError instanceof Error ? requestError.message : "Не удалось выгрузить CSV");
+
+    const selectedRows = filteredDatabaseRows.filter((row) => row.id >= from && row.id <= to);
+    if (selectedRows.length === 0) {
+      setDatabaseExportError("В указанном диапазоне ID нет тендеров");
+      return;
     }
+
+    const headers = [
+      "ID",
+      "seldon id",
+      "ИНН",
+      "Дата добавления",
+      "Проверен",
+      "Ссылка",
+      "Контрагент",
+      "Статус",
+      "Причина статуса",
+      "ОП",
+      "НМЦК",
+      "Окончание подачи",
+      "Примечания"
+    ];
+    const lines = [
+      headers.map(csvCell).join(";"),
+      ...selectedRows.map((row) => [
+        row.id,
+        row.card.seldonId || sourceValue(row, ["ID", "id", "seldonId", "seldon id", "seldon_id", "Seldon ID"]),
+        row.card.counterpartyInn,
+        formatDateTime(row.createdAt),
+        row.reviewedAt ? "Да" : "Нет",
+        row.card.tenderUrl || row.card.tenderUrlSource,
+        row.card.counterpartyName,
+        fieldDisplayValue("tenderStatus", row.card.tenderStatus) || row.card.tenderStatus,
+        fieldDisplayValue("tenderStatusReason", row.card.tenderStatusReason) || row.card.tenderStatusReason,
+        row.card.op,
+        row.card.initialPrice,
+        [row.card.submissionDeadlineDate, row.card.submissionDeadlineTime].filter(Boolean).join(" "),
+        row.discrepancyNotes || row.card.discrepancyNotes
+      ].map(csvCell).join(";"))
+    ];
+
+    const blob = new Blob(["\ufeff", lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    setDatabaseExportDownloadUrl(url);
+    setDatabaseExportFileName(`database-tenders-id-${from}-${to}.csv`);
   };
 
   const saveTesting = async () => {
@@ -632,44 +672,6 @@ export default function App() {
             </div>
           )}
         </section>
-
-        {exportModalOpen && (
-          <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setExportModalOpen(false)}>
-            <section className="modal" role="dialog" aria-modal="true" aria-labelledby="export-title">
-              <div className="modal-header">
-                <div>
-                  <p className="eyebrow">Экспорт</p>
-                  <h2 id="export-title">Выгрузка тендеров по дате окончания</h2>
-                </div>
-                <button className="icon-button" onClick={() => setExportModalOpen(false)} aria-label="Закрыть">×</button>
-              </div>
-              <label className="field">
-                <span className="field-label">Дата окончания подачи</span>
-                <input
-                  type="date"
-                  value={exportDeadlineDate}
-                  onChange={(event) => {
-                    setExportDeadlineDate(event.target.value);
-                    setExportDownloadUrl("");
-                    setExportFileName("");
-                    setExportError("");
-                  }}
-                />
-              </label>
-              {exportError && <div className="alert alert-error">{exportError}</div>}
-              {exportDownloadUrl && (
-                <div className="alert alert-success">
-                  <span>Файл сформирован.</span>
-                  <a href={exportDownloadUrl} download={exportFileName}>Скачать файл</a>
-                </div>
-              )}
-              <div className="modal-footer">
-                <button className="button button-ghost" onClick={() => setExportModalOpen(false)}>Отмена</button>
-                <button className="button button-primary" onClick={() => void exportTendersByDeadline()}>Сформировать CSV</button>
-              </div>
-            </section>
-          </div>
-        )}
       </main>
     );
   }
@@ -688,7 +690,6 @@ export default function App() {
             <button className="button button-secondary" onClick={() => setPage("tenders")}>Текущие CSV</button>
             <button className="button button-secondary" onClick={() => setPage("saved")}>Сохранённые</button>
             <button className="button button-secondary" onClick={() => setPage("testing")}>Тестирование</button>
-            <button className="button button-secondary" onClick={() => setExportModalOpen(true)}>Выгрузить по дате</button>
             <button className="button button-primary" onClick={() => setPage("card")}>К карточке</button>
           </div>
         </header>
@@ -701,17 +702,62 @@ export default function App() {
               <h2>База тендеров</h2>
               <span>{filteredDatabaseRows.length} из {databaseRows.length}</span>
             </div>
-            <label className="field tenders-search">
-              <span className="field-label">Поиск по базе</span>
-              <input
-                type="search"
-                placeholder="seldonId, ИНН, ссылка, контрагент..."
-                value={databaseSearch}
-                onChange={(event) => setDatabaseSearch(event.target.value)}
+            <div className="header-actions database-export">
+              <label className="field tenders-search">
+                <span className="field-label">Поиск по базе</span>
+                <input
+                  type="search"
+                  placeholder="seldonId, ИНН, ссылка, контрагент..."
+                  value={databaseSearch}
+                  onChange={(event) => setDatabaseSearch(event.target.value)}
+                  disabled={databaseRows.length === 0}
+                />
+              </label>
+              <label className="field export-range-field">
+                <span className="field-label">ID с</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={databaseExportFrom}
+                  onChange={(event) => {
+                    setDatabaseExportFrom(event.target.value);
+                    setDatabaseExportError("");
+                    setDatabaseExportDownloadUrl("");
+                    setDatabaseExportFileName("");
+                  }}
+                  disabled={databaseRows.length === 0}
+                />
+              </label>
+              <label className="field export-range-field">
+                <span className="field-label">ID по</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={databaseExportTo}
+                  onChange={(event) => {
+                    setDatabaseExportTo(event.target.value);
+                    setDatabaseExportError("");
+                    setDatabaseExportDownloadUrl("");
+                    setDatabaseExportFileName("");
+                  }}
+                  disabled={databaseRows.length === 0}
+                />
+              </label>
+              <button
+                className="button button-secondary"
                 disabled={databaseRows.length === 0}
-              />
-            </label>
+                onClick={exportDatabaseRowsByIdRange}
+              >
+                Сформировать CSV
+              </button>
+              {databaseExportDownloadUrl && (
+                <a className="button button-primary" href={databaseExportDownloadUrl} download={databaseExportFileName}>
+                  Скачать файл
+                </a>
+              )}
+            </div>
           </div>
+          {databaseExportError && <div className="alert alert-error card-alert">{databaseExportError}</div>}
 
           {databaseRows.length === 0 ? (
             <div className="empty-state">

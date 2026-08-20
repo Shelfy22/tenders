@@ -60,6 +60,7 @@ textarea { resize: vertical; }
 
 .tenders-toolbar { align-items: flex-end; }
 .tenders-search { width: min(360px, 100%); }
+.database-export { align-items: flex-end; }
 .testing-export { align-items: flex-end; }
 .export-range-field { width: 92px; }
 .card-alert { margin: 0 28px 18px; }
