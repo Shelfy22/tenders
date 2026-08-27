@@ -86,6 +86,7 @@ export default function App() {
   const [savedTenders, setSavedTenders] = useState<SavedTender[]>([]);
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStats[]>([]);
   const [testingRecords, setTestingRecords] = useState<TestingRecord[]>([]);
+  const [testingSearch, setTestingSearch] = useState("");
   const [selectedTestingRecord, setSelectedTestingRecord] = useState<TestingRecord | null>(null);
   const [testingError, setTestingError] = useState("");
   const [testingNotice, setTestingNotice] = useState("");
@@ -209,6 +210,12 @@ export default function App() {
     );
   }, [databaseRows, databaseSearch]);
 
+  const filteredTestingRecords = useMemo(() => {
+    const query = testingSearch.trim().toLowerCase();
+    if (!query) return testingRecords;
+    return testingRecords.filter((record) => record.seldonId.toLowerCase().includes(query));
+  }, [testingRecords, testingSearch]);
+
   const updateField = (key: keyof TenderCard, value: string) => {
     const field = fieldsConfig.find((item) => item.key === key);
     const normalized = field?.type === "number" ? (value === "" ? "" : Number(value)) : value;
@@ -314,7 +321,7 @@ export default function App() {
       return;
     }
 
-    const selectedRows = testingRecords.slice(from - 1, to);
+    const selectedRows = filteredTestingRecords.slice(from - 1, to);
     if (selectedRows.length === 0) {
       setTestingExportError("В указанном диапазоне нет записей");
       return;
@@ -356,7 +363,7 @@ export default function App() {
     setTestingExportFileName(`testing-records-${from}-${from + selectedRows.length - 1}.csv`);
   };
 
-  const exportDatabaseRowsByIdRange = () => {
+  const exportDatabaseRowsRange = () => {
     setDatabaseExportError("");
     setDatabaseExportFileName("");
     if (databaseExportDownloadUrl) URL.revokeObjectURL(databaseExportDownloadUrl);
@@ -365,25 +372,26 @@ export default function App() {
     const from = Number(databaseExportFrom);
     const to = Number(databaseExportTo);
     if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to < from) {
-      setDatabaseExportError("Укажите корректный диапазон ID, например с 1 по 343");
+      setDatabaseExportError("Укажите корректный диапазон строк, например с 1 по 343");
       return;
     }
 
-    const selectedRows = filteredDatabaseRows.filter((row) => row.id >= from && row.id <= to);
+    const selectedRows = filteredDatabaseRows.slice(from - 1, to);
     if (selectedRows.length === 0) {
-      setDatabaseExportError("В указанном диапазоне ID нет тендеров");
+      setDatabaseExportError("В указанном диапазоне строк нет тендеров");
       return;
     }
 
-    const headers = ["ID базы", "Дата добавления", "Проверен", ...fieldsConfig.map((field) => field.label)];
+    const headers = ["Номер строки", "ID базы", "Дата добавления", "Проверен", ...fieldsConfig.map((field) => field.label)];
     const lines = [
       headers.map(csvCell).join(";"),
-      ...selectedRows.map((row) => {
+      ...selectedRows.map((row, index) => {
         const cardForExport = {
           ...row.card,
           discrepancyNotes: row.discrepancyNotes || row.card.discrepancyNotes
         };
         return [
+          from + index,
           row.id,
           formatDateTime(row.createdAt),
           row.reviewedAt ? "Да" : "Нет",
@@ -397,7 +405,7 @@ export default function App() {
     const blob = new Blob(["\ufeff", lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     setDatabaseExportDownloadUrl(url);
-    setDatabaseExportFileName(`database-tenders-id-${from}-${to}.csv`);
+    setDatabaseExportFileName(`database-tenders-${from}-${from + selectedRows.length - 1}.csv`);
   };
 
   const saveTesting = async () => {
@@ -694,12 +702,17 @@ export default function App() {
                   type="search"
                   placeholder="seldonId, ИНН, ссылка, контрагент..."
                   value={databaseSearch}
-                  onChange={(event) => setDatabaseSearch(event.target.value)}
+                  onChange={(event) => {
+                    setDatabaseSearch(event.target.value);
+                    setDatabaseExportError("");
+                    setDatabaseExportDownloadUrl("");
+                    setDatabaseExportFileName("");
+                  }}
                   disabled={databaseRows.length === 0}
                 />
               </label>
               <label className="field export-range-field">
-                <span className="field-label">ID с</span>
+                <span className="field-label">С</span>
                 <input
                   type="number"
                   min={1}
@@ -714,10 +727,12 @@ export default function App() {
                 />
               </label>
               <label className="field export-range-field">
-                <span className="field-label">ID по</span>
+                <span className="field-label">По</span>
                 <input
                   type="number"
                   min={1}
+                  max={filteredDatabaseRows.length || undefined}
+                  placeholder={String(filteredDatabaseRows.length || 1)}
                   value={databaseExportTo}
                   onChange={(event) => {
                     setDatabaseExportTo(event.target.value);
@@ -730,8 +745,8 @@ export default function App() {
               </label>
               <button
                 className="button button-secondary"
-                disabled={databaseRows.length === 0}
-                onClick={exportDatabaseRowsByIdRange}
+                disabled={filteredDatabaseRows.length === 0}
+                onClick={exportDatabaseRowsRange}
               >
                 Сформировать CSV
               </button>
@@ -754,6 +769,7 @@ export default function App() {
               <table className="tenders-table">
                 <thead>
                   <tr>
+                    <th>№</th>
                     <th>ID</th>
                     <th>seldon id</th>
                     <th>ИНН</th>
@@ -770,8 +786,9 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredDatabaseRows.map((row) => (
+                  {filteredDatabaseRows.map((row, index) => (
                     <tr key={row.id} onClick={() => openTenderFromCsv(row)}>
+                      <td>{index + 1}</td>
                       <td>{row.id}</td>
                       <td>{row.card.seldonId || sourceValue(row, ["ID", "id", "seldonId", "seldon id", "seldon_id", "Seldon ID"]) || "—"}</td>
                       <td>{row.card.counterpartyInn || "—"}</td>
@@ -989,9 +1006,24 @@ export default function App() {
           <div className="card-heading tenders-toolbar">
             <div>
               <h2>Записи тестирования</h2>
-              <span>{testingRecords.length} записей</span>
+              <span>{filteredTestingRecords.length} из {testingRecords.length}</span>
             </div>
             <div className="header-actions testing-export">
+              <label className="field tenders-search">
+                <span className="field-label">Поиск по SeldonId</span>
+                <input
+                  type="search"
+                  placeholder="Введите SeldonId..."
+                  value={testingSearch}
+                  onChange={(event) => {
+                    setTestingSearch(event.target.value);
+                    setTestingExportError("");
+                    setTestingExportDownloadUrl("");
+                    setTestingExportFileName("");
+                  }}
+                  disabled={testingRecords.length === 0}
+                />
+              </label>
               <label className="field export-range-field">
                 <span className="field-label">С</span>
                 <input
@@ -1011,8 +1043,8 @@ export default function App() {
                 <input
                   type="number"
                   min={1}
-                  max={testingRecords.length || undefined}
-                  placeholder={String(testingRecords.length || 1)}
+                  max={filteredTestingRecords.length || undefined}
+                  placeholder={String(filteredTestingRecords.length || 1)}
                   value={testingExportTo}
                   onChange={(event) => {
                     setTestingExportTo(event.target.value);
@@ -1024,7 +1056,7 @@ export default function App() {
               </label>
               <button
                 className="button button-secondary"
-                disabled={testingRecords.length === 0}
+                disabled={filteredTestingRecords.length === 0}
                 onClick={exportTestingRecordsRange}
               >
                 Сформировать CSV
@@ -1041,6 +1073,11 @@ export default function App() {
             <div className="empty-state">
               <h3>Пока нет записей тестирования</h3>
               <p>После сохранения обработанного тендера он появится в этой таблице.</p>
+            </div>
+          ) : filteredTestingRecords.length === 0 ? (
+            <div className="empty-state">
+              <h3>Ничего не найдено</h3>
+              <p>Проверьте SeldonId в строке поиска.</p>
             </div>
           ) : (
             <div className="table-wrap">
@@ -1060,7 +1097,7 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {testingRecords.map((item) => (
+                  {filteredTestingRecords.map((item) => (
                     <tr key={item.id} onClick={() => openTestingRecordInNewTab(item)}>
                       <td>{formatDateTime(item.createdAt)}</td>
                       <td>{item.seldonId}</td>
