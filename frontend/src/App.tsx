@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   createTestingRecord,
+  deleteImportedTendersBySeldonIds,
   getActiveCsvBatch,
   getAutofillStatus,
   getImportedTenders,
@@ -83,6 +84,7 @@ export default function App() {
   const [databaseRows, setDatabaseRows] = useState<ActiveCsvTender[]>([]);
   const [databaseSearch, setDatabaseSearch] = useState("");
   const [databaseError, setDatabaseError] = useState("");
+  const [databaseNotice, setDatabaseNotice] = useState("");
   const [savedTenders, setSavedTenders] = useState<SavedTender[]>([]);
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStats[]>([]);
   const [testingRecords, setTestingRecords] = useState<TestingRecord[]>([]);
@@ -107,6 +109,7 @@ export default function App() {
   const [databaseExportDownloadUrl, setDatabaseExportDownloadUrl] = useState("");
   const [databaseExportFileName, setDatabaseExportFileName] = useState("");
   const [databaseExportError, setDatabaseExportError] = useState("");
+  const [databaseDeleteSeldonIds, setDatabaseDeleteSeldonIds] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [autofillMode, setAutofillMode] = useState<"url" | "documents">("url");
   const [tenderUrl, setTenderUrl] = useState("");
@@ -288,6 +291,29 @@ export default function App() {
       setDatabaseRows(response.tenders);
     } catch (requestError) {
       setDatabaseError(requestError instanceof Error ? requestError.message : "Не удалось загрузить тендеры из базы");
+    }
+  };
+
+  const deleteDatabaseTenders = async () => {
+    setDatabaseError("");
+    setDatabaseNotice("");
+    const seldonIds = databaseDeleteSeldonIds
+      .split(/[\s,;]+/g)
+      .map((id) => id.trim())
+      .filter(Boolean);
+    if (seldonIds.length === 0) {
+      setDatabaseError("Укажите хотя бы один seldonId для удаления");
+      return;
+    }
+    if (!window.confirm(`Удалить тендеры из базы: ${seldonIds.join(", ")}?`)) return;
+
+    try {
+      const response = await deleteImportedTendersBySeldonIds(seldonIds);
+      setDatabaseDeleteSeldonIds("");
+      setDatabaseNotice(`Удалено тендеров: ${response.deletedCount}`);
+      await loadDatabaseTenders();
+    } catch (requestError) {
+      setDatabaseError(requestError instanceof Error ? requestError.message : "Не удалось удалить тендеры из базы");
     }
   };
 
@@ -687,6 +713,7 @@ export default function App() {
           </div>
         </header>
 
+        {databaseNotice && <div className="alert alert-success">{databaseNotice}</div>}
         {databaseError && <div className="alert alert-error">{databaseError}</div>}
 
         <section className="card">
@@ -755,6 +782,27 @@ export default function App() {
                   Скачать файл
                 </a>
               )}
+              <label className="field tenders-search">
+                <span className="field-label">Удалить по seldonId</span>
+                <input
+                  type="text"
+                  placeholder="22874640 22876240..."
+                  value={databaseDeleteSeldonIds}
+                  onChange={(event) => {
+                    setDatabaseDeleteSeldonIds(event.target.value);
+                    setDatabaseError("");
+                    setDatabaseNotice("");
+                  }}
+                  disabled={databaseRows.length === 0}
+                />
+              </label>
+              <button
+                className="button button-ghost"
+                disabled={databaseRows.length === 0 || !databaseDeleteSeldonIds.trim()}
+                onClick={() => void deleteDatabaseTenders()}
+              >
+                Удалить
+              </button>
             </div>
           </div>
           {databaseExportError && <div className="alert alert-error card-alert">{databaseExportError}</div>}

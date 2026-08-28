@@ -74,6 +74,16 @@ export function getImportedTenders(): Promise<{ tenders: ActiveCsvTender[] }> {
   return request("/api/imported-tenders");
 }
 
+export function deleteImportedTendersBySeldonIds(seldonIds: string[]): Promise<{
+  success: boolean;
+  deletedCount: number;
+}> {
+  return request("/api/imported-tenders/by-seldon-id", {
+    method: "DELETE",
+    body: JSON.stringify({ seldonIds })
+  });
+}
+
 export async function uploadCsvBatch(files: File[]): Promise<{
   success: boolean;
   batchId: number;

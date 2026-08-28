@@ -282,6 +282,28 @@ export async function listImportedTenders(): Promise<ActiveTenderRow[]> {
   }));
 }
 
+export async function deleteImportedTendersBySeldonIds(seldonIds: string[]): Promise<{ deletedCount: number }> {
+  const normalizedIds = [...new Set(seldonIds.map((id) => id.trim()).filter(Boolean))];
+  if (normalizedIds.length === 0) return { deletedCount: 0 };
+
+  const result = await requirePool().query<{ id: number }>(
+    `DELETE FROM imported_tenders
+     WHERE btrim(COALESCE(
+       NULLIF(card->>'seldonId', ''),
+       NULLIF(source->>'ID', ''),
+       NULLIF(source->>'id', ''),
+       NULLIF(source->>'seldonId', ''),
+       NULLIF(source->>'seldon id', ''),
+       NULLIF(source->>'seldon_id', ''),
+       NULLIF(source->>'Seldon ID', '')
+     )) = ANY($1::text[])
+     RETURNING id`,
+    [normalizedIds]
+  );
+
+  return { deletedCount: result.rowCount ?? 0 };
+}
+
 export async function saveTenderReview(input: {
   importedTenderId?: number | null;
   card: TenderCard;

@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { parseTenderCsv } from "./csvParser.js";
 import {
   createTestingRecord,
+  deleteImportedTendersBySeldonIds,
   getActiveCsvBatch,
   getModelVersion,
   getMonthlyStats,
@@ -94,6 +95,28 @@ app.get("/api/imported-tenders", async (_req, res, next) => {
     ensureDatabase(res);
     if (res.headersSent) return;
     res.json({ tenders: await listImportedTenders() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete("/api/imported-tenders/by-seldon-id", async (req, res, next) => {
+  try {
+    ensureDatabase(res);
+    if (res.headersSent) return;
+    const rawSeldonIds: unknown[] = Array.isArray(req.body?.seldonIds)
+      ? req.body.seldonIds
+      : [req.body?.seldonId];
+    const seldonIds = rawSeldonIds
+      .map((id) => String(id ?? "").trim())
+      .filter(Boolean);
+    if (seldonIds.length === 0) {
+      res.status(400).json({ success: false, error: "seldonId обязателен" });
+      return;
+    }
+
+    const result = await deleteImportedTendersBySeldonIds(seldonIds);
+    res.json({ success: true, ...result });
   } catch (error) {
     next(error);
   }
